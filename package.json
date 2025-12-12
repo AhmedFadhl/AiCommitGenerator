@@ -1,0 +1,112 @@
+{
+  "name": "aj-ai-commit-generator",
+  "displayName": "(AJ) AI Commit Generator2",
+  "description": "Generate semantic Git commit messages using AI (Gemini or OpenAI) directly in VS Code.",
+  "version": "1.0.0",
+  "publisher": "AhmedFadhlAJ",
+  "icon": "resources/aj-logo.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AhmedFadhl/AiCommitGenerator.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onCommand:ai-commit-generator.generateCommitMessage",
+    "onView:scm"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-commit-generator.generateCommitMessage",
+        "title": "Generate AI Commit Message",
+        "icon": "$(sparkle)"
+      }
+    ],
+    "configuration": {
+      "title": "AI Commit Generator",
+      "properties": {
+        "aiCommitGenerator.provider": {
+          "type": "string",
+          "default": "gemini",
+          "enum": [
+            "gemini",
+            "openai"
+          ],
+          "description": "AI provider to use for commit message generation."
+        },
+        "aiCommitGenerator.geminiModel": {
+          "type": "string",
+          "default": "gemini-2.0-flash",
+          "enum": [
+            "gemini-2.0-flash",
+            "gemini-1.5-pro"
+          ],
+          "description": "Gemini model to use."
+        },
+        "aiCommitGenerator.openaiModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "enum": [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-3.5-turbo"
+          ],
+          "description": "OpenAI model to use."
+        },
+        "aiCommitGenerator.apiKey": {
+          "type": "string",
+          "description": "API key for the selected provider (Gemini or OpenAI). ⚠️ Do not share or commit this key!"
+        }
+      }
+    },
+    "menus": {
+      "scm/title": [
+        {
+          "command": "ai-commit-generator.generateCommitMessage",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        }
+      ],
+      "scm/sourceControl": [
+        {
+          "command": "ai-commit-generator.generateCommitMessage",
+          "group": "9_cutcopypaste@2"
+        }
+      ]
+    }
+  },
+  "keybindings": [
+    {
+      "command": "ai-commit-generator.generateCommitMessage",
+      "key": "ctrl+alt+c",
+      "mac": "cmd+shift+c",
+      "when": "gitState != detached"
+    }
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.27.1",
+    "eslint": "^8.47.0",
+    "typescript": "^5.9.2"
+  }
+}
