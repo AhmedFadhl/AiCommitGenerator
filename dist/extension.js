@@ -1123,6 +1123,35 @@ Commit Message:`;
         vscode.window.showErrorMessage("Received invalid response from OpenAI.");
         return "";
       }
+    } else if (provider === "openrouter") {
+      const model = config.get("openrouterModel") || "qwen/qwen3-coder:free";
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "You are a helpful assistant that writes semantic Git commit messages." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 200
+        })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
+      }
+      const data = await response.json();
+      if (typeof data === "object" && data !== null && "choices" in data && Array.isArray(data.choices) && data.choices.length > 0 && typeof data.choices[0].message?.content === "string") {
+        return cleanCommitMessage(data.choices[0].message.content);
+      } else {
+        vscode.window.showErrorMessage("Received invalid response from OpenRouter.");
+        return "";
+      }
     } else {
       vscode.window.showErrorMessage(`Unsupported AI provider: ${provider}`);
       return "";
