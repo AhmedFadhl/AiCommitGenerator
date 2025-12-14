@@ -49,12 +49,12 @@ function cleanCommitMessage(message: string): string {
  * Generate commit message using AI (Gemini or OpenAI).
  */
 async function generateCommitMessage(diff: string): Promise<string> {
-    const config = vscode.workspace.getConfiguration('aiCommitGenerator2');
+    const config = vscode.workspace.getConfiguration('aiCommitGenerator');
     const provider = config.get<string>('provider') || 'gemini';
     const apiKey = config.get<string>('apiKey')?.trim();
 
     if (!apiKey) {
-        vscode.window.showErrorMessage('Please set your API key in settings (aiCommitGenerator2.apiKey).');
+        vscode.window.showErrorMessage('Please set your API key in settings (aiCommitGenerator.apiKey).');
         return '';
     }
 
