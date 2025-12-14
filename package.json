@@ -39,7 +39,8 @@
           "default": "gemini",
           "enum": [
             "gemini",
-            "openai"
+            "openai",
+            "openrouter"
           ],
           "description": "AI provider to use for commit message generation."
         },
@@ -61,6 +62,20 @@
             "gpt-3.5-turbo"
           ],
           "description": "OpenAI model to use."
+        },
+        "aiCommitGenerator.openrouterModel": {
+          "type": "string",
+          "default": "qwen/qwen3-coder:free",
+           "enum": [
+             "qwen/qwen3-coder:free",
+            "openai/gpt-oss-20b:free",
+            "nvidia/nemotron-nano-9b-v2:free",
+            "alibaba/tongyi-deepresearch-30b-a3b:free",
+            "amazon/nova-2-lite-v1:free",
+            "mistralai/devstral-2512:free",
+            "openai/gpt-oss-120b:free"
+          ],
+          "description": "OpenRouter model to use."
         },
         "aiCommitGenerator.apiKey": {
           "type": "string",
