@@ -1072,11 +1072,11 @@ function cleanCommitMessage(message) {
   return message.replace(/^```(?:\w+)?\s*/, "").replace(/```+\s*$/, "").replace(/`+\s*$/, "").replace(/^\s+/, "").replace(/\s+$/, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 async function generateCommitMessage(diff) {
-  const config = vscode.workspace.getConfiguration("aiCommitGenerator2");
+  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
   const provider = config.get("provider") || "gemini";
   const apiKey = config.get("apiKey")?.trim();
   if (!apiKey) {
-    vscode.window.showErrorMessage("Please set your API key in settings (aiCommitGenerator2.apiKey).");
+    vscode.window.showErrorMessage("Please set your API key in settings (aiCommitGenerator.apiKey).");
     return "";
   }
   const prompt = `Generate a concise and informative Git commit message based on the following staged changes. Focus on the 'what' and 'why'. Optionally categorize (feat, fix, docs, style, refactor, test, chore) and give a short summary with optional details.
