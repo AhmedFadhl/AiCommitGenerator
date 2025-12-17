@@ -46,9 +46,13 @@
         },
         "aiCommitGenerator.geminiModel": {
           "type": "string",
-          "default": "gemini-2.0-flash",
+          "default": "gemini-3-flash-preview",
           "enum": [
             "gemini-2.0-flash",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-pro",
+            "gemini-3-flash-preview",
             "gemini-1.5-pro"
           ],
           "description": "Gemini model to use."
