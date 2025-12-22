@@ -70,8 +70,8 @@
         "aiCommitGenerator.openrouterModel": {
           "type": "string",
           "default": "qwen/qwen3-coder:free",
-           "enum": [
-             "qwen/qwen3-coder:free",
+          "enum": [
+            "qwen/qwen3-coder:free",
             "openai/gpt-oss-20b:free",
             "nvidia/nemotron-nano-9b-v2:free",
             "alibaba/tongyi-deepresearch-30b-a3b:free",
@@ -84,6 +84,15 @@
         "aiCommitGenerator.apiKey": {
           "type": "string",
           "description": "API key for the selected provider (Gemini or OpenAI). ⚠️ Do not share or commit this key!"
+        },
+        "aiCommitGenerator.githubToken": {
+          "type": "string",
+          "description": "GitHub Personal Access Token (with 'repo' scope) to link commits to issues. ⚠️ Never commit this!"
+        },
+        "aiCommitGenerator.autoCreateIssue": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically create a new issue if no relevant one is found."
         }
       }
     },
