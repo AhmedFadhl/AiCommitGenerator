@@ -1,8 +1,8 @@
 {
   "name": "aj-ai-commit-generator",
-  "displayName": "(AJ) AI Commit Generator2",
-  "description": "Generate semantic Git commit messages using AI (Gemini or OpenAI) directly in VS Code.",
-  "version": "1.0.0",
+  "displayName": "(AJ) AI Commit Generator Pro",
+  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
+  "version": "2.0.0",
   "publisher": "AhmedFadhlAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
@@ -11,12 +11,13 @@
     "url": "https://github.com/AhmedFadhl/AiCommitGenerator.git"
   },
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other",
     "SCM Providers",
-    "Machine Learning"
+    "Machine Learning",
+    "Issue Tracking"
   ],
   "activationEvents": [
     "onCommand:ai-commit-generator.generateCommitMessage",
@@ -27,12 +28,17 @@
     "commands": [
       {
         "command": "ai-commit-generator.generateCommitMessage",
-        "title": "Generate AI Commit Message",
+        "title": "Generate AI Commit Message with Issue Tracking",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "ai-commit-generator.createIssueFromChanges",
+        "title": "Create Issue from Changes",
+        "icon": "$(issue)"
       }
     ],
     "configuration": {
-      "title": "AI Commit Generator",
+      "title": "AI Commit Generator Pro",
       "properties": {
         "aiCommitGenerator.provider": {
           "type": "string",
@@ -83,16 +89,69 @@
         },
         "aiCommitGenerator.apiKey": {
           "type": "string",
-          "description": "API key for the selected provider (Gemini or OpenAI). ⚠️ Do not share or commit this key!"
+          "description": "API key for the selected AI provider (Gemini, OpenAI, or OpenRouter). ⚠️ Do not share or commit this key!"
         },
-        "aiCommitGenerator.githubToken": {
+        "aiCommitGenerator.issueTracker": {
           "type": "string",
-          "description": "GitHub Personal Access Token (with 'repo' scope) to link commits to issues. ⚠️ Never commit this!"
+          "default": "none",
+          "enum": [
+            "none",
+            "github",
+            "gitlab",
+            "jira",
+            "linear"
+          ],
+          "description": "Issue tracker to integrate with. Set to 'none' to disable issue tracking."
         },
-        "aiCommitGenerator.autoCreateIssue": {
+        "aiCommitGenerator.issueTrackerUrl": {
+          "type": "string",
+          "description": "Base URL for issue tracker (e.g., https://github.com/owner/repo, https://your-company.atlassian.net)"
+        },
+        "aiCommitGenerator.issueTrackerToken": {
+          "type": "string",
+          "description": "API token/password for issue tracker authentication"
+        },
+        "aiCommitGenerator.issueTrackerUsername": {
+          "type": "string",
+          "description": "Username/email for issue tracker authentication (for Jira)"
+        },
+        "aiCommitGenerator.issueTrackerProject": {
+          "type": "string",
+          "description": "Project key/identifier (for Jira/Linear)"
+        },
+        "aiCommitGenerator.autoCreateIssues": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically create a new issue if no relevant one is found."
+          "description": "Automatically create issues when none are found"
+        },
+        "aiCommitGenerator.issueLabels": {
+          "type": "array",
+          "default": [
+            "enhancement",
+            "bug",
+            "chore"
+          ],
+          "description": "Default labels for auto-created issues"
+        },
+        "aiCommitGenerator.defaultIssueType": {
+          "type": "string",
+          "default": "Task",
+          "description": "Default issue type (for Jira/Linear)"
+        },
+        "aiCommitGenerator.commitFormat": {
+          "type": "string",
+          "default": "conventional",
+          "enum": [
+            "conventional",
+            "simple",
+            "smart"
+          ],
+          "description": "Format for commit messages"
+        },
+        "aiCommitGenerator.includeIssueInCommit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include issue reference in commit message"
         }
       }
     },
@@ -100,6 +159,11 @@
       "scm/title": [
         {
           "command": "ai-commit-generator.generateCommitMessage",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        },
+        {
+          "command": "ai-commit-generator.createIssueFromChanges",
           "when": "scmProvider == git",
           "group": "navigation"
         }
@@ -118,23 +182,32 @@
       "key": "ctrl+alt+c",
       "mac": "cmd+shift+c",
       "when": "gitState != detached"
+    },
+    {
+      "command": "ai-commit-generator.createIssueFromChanges",
+      "key": "ctrl+alt+i",
+      "mac": "cmd+shift+i",
+      "when": "gitState != detached"
     }
   ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "node esbuild.js",
-    "watch": "tsc -watch -p ./",
+    "watch": "node esbuild.js --watch",
     "lint": "eslint src --ext ts",
     "test": "echo \"No tests yet\""
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1"
+    "@google/generative-ai": "^0.24.1",
+    "https-proxy-agent": "^7.0.6",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
-    "@types/node": "^18.17.0",
-    "@types/vscode": "^1.80.0",
-    "esbuild": "^0.27.1",
-    "eslint": "^8.47.0",
-    "typescript": "^5.9.2"
+    "@types/node": "^18.19.130",
+    "@types/node-fetch": "^2.6.7",
+    "@types/vscode": "1.85",
+    "esbuild": "^0.27.2",
+    "eslint": "^8.57.1",
+    "typescript": "^5.9.3"
   }
 }

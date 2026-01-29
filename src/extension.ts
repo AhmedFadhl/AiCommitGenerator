@@ -2,206 +2,256 @@
 
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
+import { promisify } from 'util';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as path from 'path';
+import { json } from 'stream/consumers';
 
-/**
- * Get staged changes; if none, get all uncommitted changes.
- */
-async function getStagedOrAllChanges(workspaceRoot: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        exec('git diff --cached', { cwd: workspaceRoot }, (error, stdout, stderr) => {
-            if (stderr) console.warn(`git stderr: ${stderr}`);
-            if (error) {
-                reject(`Error getting staged changes: ${stderr}`);
-                return;
-            }
-            if (stdout.trim()) {
-                resolve(stdout);
-            } else {
-                exec('git diff', { cwd: workspaceRoot }, (err, allChanges, allStderr) => {
-                    if (allStderr) console.warn(`git stderr: ${allStderr}`);
-                    if (err) {
-                        reject(`Error getting all changes: ${allStderr}`);
-                        return;
-                    }
-                    resolve(allChanges);
-                });
-            }
-        });
-    });
+const execAsync = promisify(exec);
+
+/* -------------------------------------------------------------------------- */
+/*                                   TYPES                                    */
+/* -------------------------------------------------------------------------- */
+
+interface GitAPI {
+  repositories: GitRepository[];
 }
 
-/**
- * Clean AI-generated commit messages.
- */
-function cleanCommitMessage(message: string): string {
-    return message
-        .replace(/^```(?:\w+)?\s*/, '')
-        .replace(/```+\s*$/, '')
-        .replace(/`+\s*$/, '')
-        .replace(/^\s+/, '')
-        .replace(/\s+$/, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
+interface GitRepository {
+  rootUri: vscode.Uri;
+  inputBox: vscode.SourceControlInputBox;
+  control: vscode.SourceControl;
+  state: {
+    workingTreeChanges: any[];
+    indexChanges: any[];
+  };
 }
 
-/**
- * Generate commit message using AI (Gemini or OpenAI).
- */
-async function generateCommitMessage(diff: string): Promise<string> {
-    const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-    const provider = config.get<string>('provider') || 'gemini';
-    const apiKey = config.get<string>('apiKey')?.trim();
+/* -------------------------------------------------------------------------- */
+/*                               GIT UTILITIES                                */
+/* -------------------------------------------------------------------------- */
 
-    if (!apiKey) {
-        vscode.window.showErrorMessage('Please set your API key in settings (aiCommitGenerator.apiKey).');
-        return '';
+function getGitAPI(): GitAPI {
+  const gitExtension = vscode.extensions.getExtension<any>('vscode.git');
+  if (!gitExtension?.isActive) {
+    throw new Error('Git extension not active.');
+  }
+  return gitExtension.exports.getAPI(1);
+}
+
+async function ensureGitRepo(cwd: string) {
+  await execAsync('git rev-parse --is-inside-work-tree', { cwd });
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              DIFF COLLECTION                               */
+/* -------------------------------------------------------------------------- */
+
+async function getRepoDiff(repoRoot: string): Promise<string> {
+  await ensureGitRepo(repoRoot);
+
+  const { stdout: staged } = await execAsync('git diff --cached', { cwd: repoRoot });
+  if (staged.trim()) return staged;
+
+  const { stdout } = await execAsync('git diff', { cwd: repoRoot });
+  return stdout;
+}
+
+async function getSubmodules(repoRoot: string): Promise<string[]> {
+  try {
+    const { stdout } = await execAsync('git submodule status', { cwd: repoRoot });
+    return stdout
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean)
+      .map(l => l.split(' ')[1]); // submodule path
+  } catch {
+    return [];
+  }
+}
+
+async function getSubmoduleDiff(repoRoot: string, subPath: string): Promise<string> {
+  const fullPath = path.join(repoRoot, subPath);
+
+  try {
+    await ensureGitRepo(fullPath);
+
+    const { stdout: staged } = await execAsync('git diff --cached', { cwd: fullPath });
+    if (staged.trim()) return staged;
+
+    const { stdout } = await execAsync('git diff', { cwd: fullPath });
+    return stdout;
+  } catch {
+    return '';
+  }
+}
+
+async function getFullDiff(repoRoot: string): Promise<string> {
+  let output = '';
+
+  const mainDiff = await getRepoDiff(repoRoot);
+  if (mainDiff.trim()) {
+    output += `## Main Repository Changes\n${mainDiff}\n`;
+  }
+
+  const submodules = await getSubmodules(repoRoot);
+  for (const sub of submodules) {
+    const diff = await getSubmoduleDiff(repoRoot, sub);
+    if (diff.trim()) {
+      output += `\n## Submodule: ${sub}\n${diff}\n`;
     }
+  }
 
-    const prompt = `Generate a concise and informative Git commit message based on the following staged changes. Focus on the 'what' and 'why'. Optionally categorize (feat, fix, docs, style, refactor, test, chore) and give a short summary with optional details.
+  return output;
+}
 
-Staged Changes:
+/* -------------------------------------------------------------------------- */
+/*                              AI GENERATION                                  */
+/* -------------------------------------------------------------------------- */
 
+function cleanCommitMessage(msg: string): string {
+  return msg
+    .replace(/^```[\s\S]*?\n/, '')
+    .replace(/```$/, '')
+    .trim();
+}
+
+async function generateCommitMessage(diff: string, token: vscode.CancellationToken): Promise<string> {
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const provider = config.get<string>('provider') || 'gemini';
+  const apiKey = config.get<string>('apiKey');
+
+  if (!apiKey) throw new Error('API key not configured');
+
+  const prompt = `
+Generate a semantic Git commit message.
+
+Rules:
+- Imperative mood
+- Prefix: feat | fix | refactor | chore | docs | test
+- 50 char subject
+- Blank line
+- Explain WHAT and WHY
+
+Diff:
 ${diff}
 
-Commit Message:`;
+Commit message:
+`;
 
-    try {
-        if (provider === 'gemini') {
-            const model = config.get<string>('geminiModel') || 'gemini-2.0-flash';
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const modelClient = genAI.getGenerativeModel({ model });
-            const result = await modelClient.generateContent(prompt);
-            const text = result.response.text();
-            return cleanCommitMessage(text);
-        } else if (provider === 'openai') {
-            const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [
-                        { role: 'system', content: 'You are a helpful assistant that writes semantic Git commit messages.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.3,
-                    max_tokens: 200
-                })
-            });
+  if (provider === 'gemini') {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelName = config.get<string>('geminiModel') || 'gemini-3-flash-preview';
+    const model = genAI.getGenerativeModel({ model: modelName });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
-            }
+    if (token.isCancellationRequested) throw new vscode.CancellationError();
 
-            const data = await response.json();
+    const result = await model.generateContent(prompt);
+    return cleanCommitMessage(result.response.text());
+  }
 
-            if (
-                typeof data === 'object' &&
-                data !== null &&
-                'choices' in data &&
-                Array.isArray(data.choices) &&
-                data.choices.length > 0 &&
-                typeof data.choices[0].message?.content === 'string'
-            ) {
-                return cleanCommitMessage(data.choices[0].message.content);
-            } else {
-                vscode.window.showErrorMessage('Received invalid response from OpenAI.');
-                return '';
-            }
-        }
-        else if (provider === 'openrouter') {
-            const model = config.get<string>('openrouterModel') || 'qwen/qwen3-coder:free';
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [
-                        { role: 'system', content: 'You are a helpful assistant that writes semantic Git commit messages.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.3,
-                    max_tokens: 200
-                })
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`OpenRouter API error: ${response.status} ${errorText}`);
-            }
-            const data = await response.json();
-            if (
-                typeof data === 'object' &&
-                data !== null &&
-                'choices' in data &&
-                Array.isArray(data.choices) &&
-                data.choices.length > 0 &&
-                typeof data.choices[0].message?.content === 'string'
-            ) {
-                return cleanCommitMessage(data.choices[0].message.content);
-            } else {
-                vscode.window.showErrorMessage('Received invalid response from OpenRouter.');
-                return '';
-            }
-        }
-        
-        
-        else {
-            vscode.window.showErrorMessage(`Unsupported AI provider: ${provider}`);
-            return '';
-        }
-    } catch (error: any) {
-        console.error('AI Commit Generator error:', error);
-        vscode.window.showErrorMessage(`Failed to generate commit message: ${error.message || error}`);
-        return '';
-    }
+  throw new Error(`Unsupported provider: ${provider}`);
 }
 
-/**
- * Activate extension.
- */
+/* -------------------------------------------------------------------------- */
+/*                               EXTENSION API                                */
+/* -------------------------------------------------------------------------- */
+
 export function activate(context: vscode.ExtensionContext) {
-    console.log('AJ AI Commit Generator ACTIVATED');
+  console.log('AI Commit Generator Activated');
+const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.generateCommitMessage',
+      async (sourceControl?: vscode.SourceControl,token?: vscode.CancellationToken) => {
+        console.log("Source Control:", sourceControl);
+        outputChannel.appendLine(`Source Control: Url: ${sourceControl?.rootUri}, label:${sourceControl?.label||''}, id:${sourceControl?.id||''} , placeholder:${sourceControl?.inputBox?.placeholder||''}`);
+        try {
+          if(!sourceControl || !sourceControl.rootUri)
+          {
+            vscode.window.showInformationMessage('No changes detected');
+            return;
+          }
+          // const gitAPI = getGitAPI();
+          // if (!gitAPI.repositories.length) {
+          //   vscode.window.showErrorMessage('No Git repositories found');
+          //   return;
+          // }
+          // gitAPI.repositories.forEach(element => {
+            
+          //   outputChannel.appendLine(`Source Control: Url: ${element?.rootUri||''}  , ControlUrl: ${element?.control?.rootUri||''},  , label:${element?.control?.label||''}, id: ${element?.control?.id||''}, placeholder: ${element?.control?.inputBox?.placeholder||''}, state: ${element?.state.workingTreeChanges.toString()}`);
+          // });
 
-    let disposable = vscode.commands.registerCommand(
-        'ai-commit-generator.generateCommitMessage',
-        async (sourceControl) => {
-            try {
-                if (!sourceControl?.inputBox) {
-                    vscode.window.showErrorMessage('Not in a Git repo.');
-                    return;
-                }
+          // FIX: Identify the correct repository
+          // let repo: GitRepository | undefined;
 
-                const workspaceFolders = vscode.workspace.workspaceFolders;
-                if (!workspaceFolders?.length) return;
+          // if (sourceControl?.rootUri) {
+          //   // If triggered from a specific repository's UI button
+          //   repo = gitAPI.repositories.find(r => r.rootUri === sourceControl.rootUri);
+          // }
 
-                const root = workspaceFolders[0].uri.fsPath;
+          // if (!repo) {
+          //   // Fallback: use the first repo if only one exists, or ask user to select
+          //   if (gitAPI.repositories.length === 1) {
+          //     repo = gitAPI.repositories[0];
+          //   } else {
+          //     // Try to find the repo for the active editor
+          //     const activeEditor = vscode.window.activeTextEditor;
+          //     if (activeEditor) {
+          //       const uri = activeEditor.document.uri;
+          //       repo = gitAPI.repositories.find(r => 
+          //         uri.fsPath.startsWith(r.rootUri.fsPath)
+          //       );
+          //     }
+          //   }
+          // }
 
-                const diff = await getStagedOrAllChanges(root);
-                if (!diff.trim()) {
-                    vscode.window.showWarningMessage('No changes found.');
-                    return;
-                }
+          // // Final fallback: if still not found, use the first one (original behavior)
+          // if (!repo) {
+          //   repo = gitAPI.repositories[0];
+          // }
 
-                const msg = await generateCommitMessage(diff);
-                if (!msg) return;
+          const repoRoot = sourceControl.rootUri.fsPath;
+          // const repoRoot = sourceControl?.rootUri.fsPath;
 
-                sourceControl.inputBox.value = msg;
-            } catch (err) {
-                console.error(err);
-                vscode.window.showErrorMessage('Failed to generate commit message.');
+          // const diff = await getFullDiff(repoRoot);
+          const diff = await getRepoDiff(repoRoot);
+          // const diff = await getFullDiff();
+          if (!diff.trim()) {
+            vscode.window.showInformationMessage('No changes detected');
+            return;
+          }
+
+          const cts = new vscode.CancellationTokenSource();
+
+          const message = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Generating commit message...',
+              cancellable: true
+            },
+            async (_, token) => {
+              token.onCancellationRequested(() => cts.cancel());
+              return generateCommitMessage(diff, cts.token);
             }
-        }
-    );
+          );
 
-    context.subscriptions.push(disposable);
+          if(sourceControl)
+            sourceControl.inputBox.value = message;
+          // else
+          // repo.inputBox.value = message;
+          vscode.window.showInformationMessage('Commit message generated 🎉');
+
+        } catch (err: any) {
+          if (err instanceof vscode.CancellationError) {
+            vscode.window.showInformationMessage('Cancelled');
+            return;
+          }
+          vscode.window.showErrorMessage(err.message || 'Failed');
+        }
+      }
+    )
+  );
 }
 
 export function deactivate() {}
