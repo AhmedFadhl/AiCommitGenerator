@@ -1050,6 +1050,62 @@ var execAsync = (0, import_util.promisify)(import_child_process.exec);
 async function ensureGitRepo(cwd) {
   await execAsync("git rev-parse --is-inside-work-tree", { cwd });
 }
+async function getRemoteUrl(repoRoot) {
+  try {
+    const { stdout } = await execAsync("git remote get-url origin", { cwd: repoRoot });
+    return stdout.trim();
+  } catch {
+    try {
+      const { stdout } = await execAsync("git remote", { cwd: repoRoot });
+      const firstRemote = stdout.split("\n")[0].trim();
+      if (firstRemote) {
+        const { stdout: url } = await execAsync(`git remote get-url ${firstRemote}`, { cwd: repoRoot });
+        return url.trim();
+      }
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+function parseGitHubUrl(url) {
+  const regex = /(?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\/.]+)(?:\.git)?/;
+  const match = url.match(regex);
+  if (match) {
+    return { owner: match[1], repo: match[2] };
+  }
+  return void 0;
+}
+async function fetchGitHubIssues(owner, repo) {
+  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+  const githubToken = config.get("githubToken");
+  const headers = {
+    "Accept": "application/vnd.github.v3+json",
+    "User-Agent": "VSCode-AI-Commit-Generator"
+  };
+  if (githubToken) {
+    headers["Authorization"] = `token ${githubToken}`;
+  }
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=50`;
+  try {
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        console.warn("GitHub API access limited. Please provide a githubToken in settings for higher limits.");
+      }
+      return [];
+    }
+    const issues = await response.json();
+    return issues.filter((issue) => !issue.pull_request).map((issue) => ({
+      number: issue.number,
+      title: issue.title,
+      body: issue.body || ""
+    }));
+  } catch (err) {
+    console.error("Error fetching GitHub issues:", err);
+    return [];
+  }
+}
 async function getRepoDiff(repoRoot) {
   await ensureGitRepo(repoRoot);
   const { stdout: staged } = await execAsync("git diff --cached", { cwd: repoRoot });
@@ -1060,13 +1116,17 @@ async function getRepoDiff(repoRoot) {
 function cleanCommitMessage(msg) {
   return msg.replace(/^```[\s\S]*?\n/, "").replace(/```$/, "").trim();
 }
-async function generateCommitMessage(diff, token) {
+async function generateCommitMessage(diff, issues, token) {
   const config = vscode.workspace.getConfiguration("aiCommitGenerator");
   const provider = config.get("provider") || "gemini";
   const apiKey = config.get("apiKey");
   if (!apiKey) throw new Error("API key not configured");
+  let issuesContext = "";
+  if (issues.length > 0) {
+    issuesContext = "\nOpen GitHub Issues:\n" + issues.map((i) => `ID: #${i.number} | Title: ${i.title}`).join("\n") + "\n";
+  }
   const prompt = `
-Generate a semantic Git commit message.
+Generate a semantic Git commit message based on the diff below.
 
 Rules:
 - Imperative mood
@@ -1074,6 +1134,9 @@ Rules:
 - 50 char subject
 - Blank line
 - Explain WHAT and WHY
+${issues.length > 0 ? '- If the changes address any of the open issues listed below, include "Closes #<ID>" or "Relates to #<ID>" at the end of the message.' : ""}
+
+${issuesContext}
 
 Diff:
 ${diff}
@@ -1088,6 +1151,47 @@ Commit message:
     const result = await model.generateContent(prompt);
     return cleanCommitMessage(result.response.text());
   }
+  if (provider === "openai") {
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
+    const model = config.get("openaiModel") || "gpt-4o-mini";
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: "You write concise, semantic Git commit messages."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 200
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${text}`);
+    }
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("Invalid OpenAI response");
+    }
+    return cleanCommitMessage(content);
+  }
   throw new Error(`Unsupported provider: ${provider}`);
 }
 function activate(context) {
@@ -1097,8 +1201,6 @@ function activate(context) {
     vscode.commands.registerCommand(
       "ai-commit-generator.generateCommitMessage",
       async (sourceControl, token) => {
-        console.log("Source Control:", sourceControl);
-        outputChannel.appendLine(`Source Control: Url: ${sourceControl?.rootUri}, label:${sourceControl?.label || ""}, id:${sourceControl?.id || ""} , placeholder:${sourceControl?.inputBox?.placeholder || ""}`);
         try {
           if (!sourceControl || !sourceControl.rootUri) {
             vscode.window.showInformationMessage("No changes detected");
@@ -1110,6 +1212,47 @@ function activate(context) {
             vscode.window.showInformationMessage("No changes detected");
             return;
           }
+          const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+          const issueTracker = config.get("issueTracker");
+          const autoCreateIssues = config.get("autoCreateIssues", true);
+          const includeIssueInCommit = config.get("includeIssueInCommit", true);
+          let issues = [];
+          let githubInfo;
+          if (issueTracker === "github") {
+            const remoteUrl = await getRemoteUrl(repoRoot);
+            if (remoteUrl) {
+              githubInfo = parseGitHubUrl(remoteUrl);
+              if (githubInfo) {
+                outputChannel.appendLine(`Fetching issues for ${githubInfo.owner}/${githubInfo.repo}...`);
+                issues = await fetchGitHubIssues(githubInfo.owner, githubInfo.repo);
+                outputChannel.appendLine(`Found ${issues.length} open issues.`);
+              } else {
+                outputChannel.appendLine("Remote URL is not a recognized GitHub URL. Skipping issue fetch.");
+              }
+            }
+          } else if (issueTracker !== "none") {
+            outputChannel.appendLine(`Issue tracker set to '${issueTracker}', but only 'github' is currently supported for fetching.`);
+          }
+          if (includeIssueInCommit && autoCreateIssues && issues.length === 0 && githubInfo) {
+            outputChannel.appendLine("No relevant issues found. Attempting to auto-create a new issue...");
+            const tempMessage = await generateCommitMessage(diff, [], new vscode.CancellationTokenSource().token);
+            const issueTitle = tempMessage.split("\n")[0].trim();
+            const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from the commit diff.";
+            const issueLabels = config.get("issueLabels", ["enhancement"]);
+            const newIssue = await createGitHubIssue(
+              githubInfo.owner,
+              githubInfo.repo,
+              issueTitle,
+              issueBody,
+              issueLabels
+            );
+            if (newIssue) {
+              outputChannel.appendLine(`Successfully created new issue #${newIssue.number}.`);
+              issues.push(newIssue);
+            } else {
+              outputChannel.appendLine("Failed to create new issue. Check token and permissions.");
+            }
+          }
           const cts = new vscode.CancellationTokenSource();
           const message = await vscode.window.withProgress(
             {
@@ -1119,11 +1262,12 @@ function activate(context) {
             },
             async (_, token2) => {
               token2.onCancellationRequested(() => cts.cancel());
-              return generateCommitMessage(diff, cts.token);
+              return generateCommitMessage(diff, issues, cts.token);
             }
           );
-          if (sourceControl)
+          if (sourceControl) {
             sourceControl.inputBox.value = message;
+          }
           vscode.window.showInformationMessage("Commit message generated \u{1F389}");
         } catch (err) {
           if (err instanceof vscode.CancellationError) {
@@ -1137,6 +1281,44 @@ function activate(context) {
   );
 }
 function deactivate() {
+}
+async function createGitHubIssue(owner, repo, issueTitle, issueBody, issueLabels) {
+  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+  const githubToken = config.get("githubToken");
+  if (!githubToken) {
+    vscode.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+    return void 0;
+  }
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
+  const headers = {
+    "Accept": "application/vnd.github.v3+json",
+    "User-Agent": "VSCode-AI-Commit-Generator",
+    "Authorization": `token ${githubToken}`,
+    "Content-Type": "application/json"
+  };
+  const body = JSON.stringify({
+    title: issueTitle,
+    body: issueBody,
+    labels: issueLabels
+  });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body
+    });
+    if (!response.ok) {
+      return void 0;
+    }
+    const data = await response.json();
+    return {
+      number: data.number,
+      title: data.title,
+      body: data.body || ""
+    };
+  } catch (err) {
+    return void 0;
+  }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

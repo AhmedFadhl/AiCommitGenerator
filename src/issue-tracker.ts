@@ -1,4 +1,5 @@
 // issue-tracker.ts
+import * as vscode from 'vscode';
 export interface Issue {
   id: string;
   title: string;
@@ -11,6 +12,63 @@ export interface IssueTracker {
   searchIssues(query: string): Promise<Issue[]>;
   createIssue(title: string, description: string, labels?: string[]): Promise<Issue>;
   getIssue(issueId: string): Promise<Issue | null>;
+}
+
+
+
+
+
+
+interface GitHubIssue {
+  number: number;
+  title: string;
+  body: string;
+}
+
+async function createGitHubIssue(
+  owner: string, 
+  repo: string, 
+  title: string, 
+  description: string, 
+  labels: string[]
+): Promise<GitHubIssue | null> {
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const githubToken = config.get<string>('githubToken');
+
+  if (!githubToken) {
+    console.error('Cannot create issue: GitHub token is not configured.');
+    return null;
+  }
+
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `token ${githubToken}`, 
+        'Content-Type': 'application/json',
+        'User-Agent': 'VSCode-AI-Commit-Generator'
+      },
+      body: JSON.stringify({ title, body: description, labels })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`GitHub API Error during issue creation (${response.status}):`, errorData);
+      return null;
+    }
+
+    const data: any = await response.json();
+    return {
+      number: data.number,
+      title: data.title,
+      body: data.body || ''
+    };
+  } catch (err) {
+    console.error('Error creating GitHub issue:', err);
+    return null;
+  }
 }
 
 // github-issue-tracker.ts
