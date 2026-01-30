@@ -27,7 +27,7 @@ interface GitRepository {
   };
 }
 
-interface GitHubIssue {
+export interface GitHubIssue {
   number: number;
   title: string;
   body: string;
@@ -98,7 +98,7 @@ async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIss
   }
 
   const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=50`;
-  
+
   try {
     const response = await fetch(url, { headers });
     if (!response.ok) {
@@ -147,8 +147,8 @@ function cleanCommitMessage(msg: string): string {
 }
 
 async function generateCommitMessage(
-  diff: string, 
-  issues: GitHubIssue[], 
+  diff: string,
+  issues: GitHubIssue[],
   token: vscode.CancellationToken
 ): Promise<string> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
@@ -159,7 +159,10 @@ async function generateCommitMessage(
 
   let issuesContext = '';
   if (issues.length > 0) {
-    issuesContext = '\nOpen GitHub Issues:\n' + issues.map(i => `ID: #${i.number} | Title: ${i.title}`).join('\n') + '\n';
+    // MODIFICATION: Include the issue body (truncated) for better relevance checking by the LLM
+    issuesContext = '\nOpen GitHub Issues (Title and Body):\n' + issues.map(i =>
+      `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 150).replace(/\n/g, ' ')}...`
+    ).join('\n') + '\n';
   }
 
   const prompt = `
@@ -171,7 +174,9 @@ Rules:
 - 50 char subject
 - Blank line
 - Explain WHAT and WHY
-${issues.length > 0 ? '- If the changes address any of the open issues listed below, include "Closes #<ID>" or "Relates to #<ID>" at the end of the message.' : ''}
+${issues.length > 0
+      ? '- **CRITICAL**: Only include "Closes #<ID>" or "Relates to #<ID>" if the changes are a DIRECT and NECESSARY part of implementing or fixing the issue. If no issue is directly addressed, DO NOT include any issue reference.'
+      : ''}
 
 ${issuesContext}
 
@@ -191,54 +196,53 @@ Commit message:
     const result = await model.generateContent(prompt);
     return cleanCommitMessage(result.response.text());
   }
-if (provider === 'openai') {
-  if (token.isCancellationRequested) {
-    throw new vscode.CancellationError();
+  if (provider === 'openai') {
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
+
+    const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You write concise, semantic Git commit messages.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 200
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${text}`);
+    }
+
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
+
+    const data: any = await response.json();
+
+    let content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Invalid OpenAI response');
+    }
+    return cleanCommitMessage(content);
   }
-
-  const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You write concise, semantic Git commit messages.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 200
-    })
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`OpenAI API error (${response.status}): ${text}`);
-  }
-
-  if (token.isCancellationRequested) {
-    throw new vscode.CancellationError();
-  }
-
-  const data: any = await response.json();
-
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('Invalid OpenAI response');
-  }
-
-  return cleanCommitMessage(content);
-}
 
 
   throw new Error(`Unsupported provider: ${provider}`);
@@ -252,7 +256,7 @@ if (provider === 'openai') {
 export function activate(context: vscode.ExtensionContext) {
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
-  
+
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.generateCommitMessage',
@@ -265,7 +269,7 @@ export function activate(context: vscode.ExtensionContext) {
 
           const repoRoot = sourceControl.rootUri.fsPath;
           const diff = await getRepoDiff(repoRoot);
-          
+
           if (!diff.trim()) {
             vscode.window.showInformationMessage('No changes detected');
             return;
@@ -276,10 +280,11 @@ export function activate(context: vscode.ExtensionContext) {
           const autoCreateIssues = config.get<boolean>('autoCreateIssues', true);
           const includeIssueInCommit = config.get<boolean>('includeIssueInCommit', true);
 
-          // 1. Fetch GitHub Issues with API Null Check (Implicitly handled by token check in fetchGitHubIssues)
           let issues: GitHubIssue[] = [];
           let githubInfo: { owner: string; repo: string } | undefined;
+          let issueToLink: GitHubIssue | undefined;
 
+          // 1. Fetch GitHub Issues
           if (issueTracker === 'github') {
             const remoteUrl = await getRemoteUrl(repoRoot);
             if (remoteUrl) {
@@ -292,48 +297,58 @@ export function activate(context: vscode.ExtensionContext) {
                 outputChannel.appendLine('Remote URL is not a recognized GitHub URL. Skipping issue fetch.');
               }
             }
-          } else if (issueTracker !== 'none') {
-            outputChannel.appendLine(`Issue tracker set to '${issueTracker}', but only 'github' is currently supported for fetching.`);
           }
 
-          // 2. Implement Auto-Create Issue Logic (Fix for missing feature and incorrect linking fallback)
-          // This logic runs ONLY if:
-          // a) We are configured to include an issue in the commit message.
-          // b) We are configured to auto-create issues.
-          // c) No relevant issues were found by the LLM.
-          // d) We successfully parsed the GitHub repository info.
-          if (includeIssueInCommit && autoCreateIssues && issues.length === 0 && githubInfo) {
-            outputChannel.appendLine('No relevant issues found. Attempting to auto-create a new issue...');
-            
-            // Generate a temporary commit message to use as the issue title/body
-            // This is a simplified approach to get content for the new issue.
-            const tempMessage = await generateCommitMessage(diff, [], new vscode.CancellationTokenSource().token);
-            const issueTitle = tempMessage.split('\n')[0].trim();
-            const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from the commit diff.';
-            const issueLabels = config.get<string[]>('issueLabels', ['enhancement']);
+          const cts = new vscode.CancellationTokenSource();
+          const cancellationToken = cts.token;
 
-            const newIssue = await createGitHubIssue(
-              githubInfo.owner, 
-              githubInfo.repo, 
-              issueTitle, 
-              issueBody, 
-              issueLabels
-            );
-            
-            if (newIssue) {
-              outputChannel.appendLine(`Successfully created new issue #${newIssue.number}.`);
-              // Add the newly created issue to the list for the final commit message generation
-              // This forces the LLM to link to the *correct*, newly created issue.
-              issues.push(newIssue);
-            } else {
-              outputChannel.appendLine('Failed to create new issue. Check token and permissions.');
+          // 2. Determine Issue Relevance (Two-Step Logic)
+          if (includeIssueInCommit && githubInfo) {
+            if (issues.length > 0) {
+              // Step 2a: Ask LLM to find the most relevant issue among the open ones
+              outputChannel.appendLine('Checking relevance of open issues...');
+              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
+
+              if (relevantIssueNumber) {
+                issueToLink = issues.find(i => i.number === relevantIssueNumber);
+                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
+              } else {
+                outputChannel.appendLine('LLM found no relevant open issue.');
+              }
+            }
+
+            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
+            if (!issueToLink && autoCreateIssues) {
+              outputChannel.appendLine('Attempting to auto-create a new issue...');
+
+              // Generate a temporary commit message to use as the issue title/body
+              const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
+              const issueTitle = tempMessage.split('\n')[0].trim();
+              const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from the commit diff.';
+              const issueLabels = config.get<string[]>('issueLabels', ['enhancement']);
+
+              const newIssue = await createGitHubIssue(
+                githubInfo.owner,
+                githubInfo.repo,
+                issueTitle,
+                issueBody,
+                issueLabels
+              );
+
+              if (newIssue) {
+                outputChannel.appendLine(`Successfully created new issue #${newIssue.number}.`);
+                issueToLink = newIssue;
+              } else {
+                outputChannel.appendLine('Failed to create new issue. Check token and permissions.');
+              }
             }
           }
-          
-          // 3. Final Commit Message Generation
-          const cts = new vscode.CancellationTokenSource();
 
-          const message = await vscode.window.withProgress(
+          // 3. Final Commit Message Generation
+          // If an issue was found or created, ensure the LLM only sees that one issue to link to.
+          const issuesForLLM = issueToLink ? [issueToLink] : [];
+
+          let message = await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
               title: 'Generating commit message...',
@@ -341,12 +356,15 @@ export function activate(context: vscode.ExtensionContext) {
             },
             async (_, token) => {
               token.onCancellationRequested(() => cts.cancel());
-              // Pass the potentially updated 'issues' list to the LLM
-              return generateCommitMessage(diff, issues, cts.token);
+              // Pass only the relevant issue (or none) to the LLM
+              return generateCommitMessage(diff, issuesForLLM, cancellationToken);
             }
           );
 
           if (sourceControl) {
+            if(issueToLink && issueToLink.number){
+              message=message+"\n #"+issueToLink.number
+            }
             sourceControl.inputBox.value = message;
           }
           vscode.window.showInformationMessage('Commit message generated 🎉');
@@ -363,7 +381,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-export function deactivate() {}
+export function deactivate() { }
 async function createGitHubIssue(
   owner: string,
   repo: string,
@@ -411,5 +429,119 @@ async function createGitHubIssue(
   } catch (err) {
     return undefined;
   }
-}
 
+
+
+
+
+}
+async function findRelevantIssue(
+  diff: string,
+  issues: GitHubIssue[],
+  token: vscode.CancellationToken,
+): Promise<number | null> {
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const provider = config.get<string>('provider') || 'gemini';
+  const apiKey = config.get<string>('apiKey');
+
+  if (!apiKey) throw new Error('API key not configured');
+
+  const issuesContext = issues.map(i =>
+    `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 150).replace(/\n/g, ' ')}...`
+  ).join('\n');
+
+  const prompt = `
+Analyze the provided Git diff and the list of open GitHub issues.
+
+Task:
+1. Determine which single issue, if any, is the MOST DIRECTLY and NECESSARILY addressed by the changes in the diff.
+2. If a relevant issue is found, respond ONLY with the issue number (e.g., "278").
+3. If NO issue is directly and necessarily addressed, respond ONLY with the word "NONE".
+
+Open GitHub Issues:
+${issuesContext}
+
+Diff:
+${diff}
+
+Relevant Issue Number (or NONE):
+`;
+
+  let responseText = ''; // Initialize responseText here
+
+  if (provider === 'gemini') {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelName = config.get<string>('geminiModel') || 'gemini-3-flash-preview';
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    if (token.isCancellationRequested) throw new vscode.CancellationError();
+
+    const result = await model.generateContent(prompt);
+    responseText = result.response.text().trim();
+
+  } else if (provider === 'openai') {
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
+
+    const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert at identifying the single most relevant GitHub issue number for a given code change. Respond ONLY with the issue number or the word NONE.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1, // Lower temperature for deterministic output
+        max_tokens: 10
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${text}`);
+    }
+
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
+
+    const data: any = await response.json();
+
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Invalid OpenAI response');
+    }
+    responseText = content.trim(); // Assign the content to responseText
+
+  } else {
+    throw new Error(`Unsupported provider: ${provider}`);
+  }
+
+  if (responseText.toUpperCase() === 'NONE') {
+    return null;
+  }
+
+  const issueNumber = parseInt(responseText.replace(/[^0-9]/g, ''), 10);
+
+  // Basic validation to ensure the number is one of the provided issues
+  if (issues.some(i => i.number === issueNumber)) {
+    // vscode.window.showInformationMessage(`Relevant issue found: #${issueNumber}`); // Removed for cleaner output
+    return issueNumber;
+  }
+
+  // If the LLM returns a number not in the list, treat it as NONE to prevent hallucination linking
+  return null;
+}
