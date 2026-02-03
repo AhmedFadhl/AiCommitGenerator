@@ -1247,25 +1247,61 @@ function activate(context) {
                 outputChannel.appendLine("LLM found no relevant open issue.");
               }
             }
-            if (!issueToLink && autoCreateIssues) {
+            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
-              const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
-              const issueTitle = tempMessage.split("\n")[0].trim();
-              const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from the commit diff.";
-              const issueLabels = config.get("issueLabels", ["enhancement"]);
-              const newIssue = await createGitHubIssue(
-                githubInfo.owner,
-                githubInfo.repo,
-                issueTitle,
-                issueBody,
-                issueLabels
-              );
-              if (newIssue) {
-                outputChannel.appendLine(`Successfully created new issue #${newIssue.number}.`);
-                issueToLink = newIssue;
-              } else {
-                outputChannel.appendLine("Failed to create new issue. Check token and permissions.");
+              const githubToken = config.get("githubToken");
+              if (!githubToken) {
+                vscode.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+                outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                return;
               }
+              try {
+                await vscode.window.withProgress(
+                  {
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Creating new issue...",
+                    cancellable: true
+                  },
+                  async (progress, token2) => {
+                    token2.onCancellationRequested(() => cts.cancel());
+                    progress.report({ message: "Preparing issue content..." });
+                    await new Promise((resolve) => setTimeout(resolve, 50));
+                    const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
+                    const issueTitle = tempMessage.split("\n")[0].trim();
+                    const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
+                    const issueLabels = config.get("issueLabels", ["enhancement"]);
+                    progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
+                    const newIssue = await createGitHubIssue(
+                      githubInfo.owner,
+                      githubInfo.repo,
+                      issueTitle,
+                      issueBody,
+                      issueLabels
+                    );
+                    if (newIssue) {
+                      outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
+                      issueToLink = newIssue;
+                      progress.report({ message: `\u2713 Issue #${newIssue.number} created` });
+                      await new Promise((resolve) => setTimeout(resolve, 400));
+                      return newIssue;
+                    } else {
+                      throw new Error("GitHub API rejected the request (check token permissions)");
+                    }
+                  }
+                );
+              } catch (error) {
+                const msg = error instanceof Error ? error.message : String(error);
+                outputChannel.appendLine(`\u274C Issue creation failed: ${msg}`);
+                if (msg.includes("ENOTFOUND") || msg.includes("ERR_INTERNET_DISCONNECTED")) {
+                  vscode.window.showErrorMessage("No internet connection. Cannot create GitHub issue.");
+                } else if (msg.includes("401") || msg.includes("403")) {
+                  vscode.window.showErrorMessage('GitHub token invalid or lacks "repo" scope permission.');
+                } else {
+                  vscode.window.showErrorMessage(`Issue creation failed: ${msg.substring(0, 100)}`);
+                }
+              }
+            } else if (!githubInfo) {
+              outputChannel.appendLine("\u26A0\uFE0F Cannot create issue: GitHub repository info unavailable");
             }
           }
           const issuesForLLM = issueToLink ? [issueToLink] : [];

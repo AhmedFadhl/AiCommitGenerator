@@ -16,11 +16,9 @@
   "categories": [
     "Other",
     "SCM Providers",
-    "Machine Learning",
-    "Issue Tracking"
+    "Machine Learning"
   ],
   "activationEvents": [
-    "onCommand:ai-commit-generator.generateCommitMessage",
     "onView:scm"
   ],
   "main": "./dist/extension.js",
