@@ -36,6 +36,14 @@ export interface GitHubIssue {
   body: string;
 }
 
+
+
+type IssueClassification = {
+  type: 'bug' | 'enhancement' | 'chore' | 'refactor' | 'docs' | 'test';
+  labels: string[];
+  confidence: number; // 0–1 (optional but powerful)
+};
+
 /* -------------------------------------------------------------------------- */
 /*                               GIT UTILITIES                                */
 /* -------------------------------------------------------------------------- */
