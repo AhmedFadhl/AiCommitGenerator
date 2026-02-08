@@ -1197,6 +1197,7 @@ Commit message:
   throw new Error(`Unsupported provider: ${provider}`);
 }
 function activate(context) {
+  let classification;
   console.log("AI Commit Generator Activated");
   const outputChannel = vscode.window.createOutputChannel("AI Commit Generator");
   context.subscriptions.push(
@@ -1269,7 +1270,11 @@ function activate(context) {
                     const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
                     const issueTitle = tempMessage.split("\n")[0].trim();
                     const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
-                    const issueLabels = config.get("issueLabels", ["enhancement"]);
+                    classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    const issueLabels = Array.from(/* @__PURE__ */ new Set([
+                      classification.type,
+                      ...classification.labels
+                    ]));
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
                     const newIssue = await createGitHubIssue(
                       githubInfo.owner,
@@ -1458,6 +1463,103 @@ Relevant Issue Number (or NONE):
     return issueNumber;
   }
   return null;
+}
+async function classifyIssueFromDiff(diff, token) {
+  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+  const provider = config.get("provider") || "gemini";
+  const apiKey = config.get("apiKey");
+  if (!apiKey) throw new Error("API key not configured");
+  const prompt = `
+Analyze the following Git diff.
+
+Task:
+1. Determine the PRIMARY nature of this change.
+2. Choose ONE type:
+   - bug
+   - enhancement
+   - chore
+   - refactor
+   - docs
+   - test
+3. Assign GitHub-style labels.
+4. IMPORTANT:
+   - Output MUST be raw JSON
+   - Do NOT use markdown
+   - Do NOT add explanations
+   - Do NOT wrap in json
+
+Rules:
+- bug \u2192 fixes incorrect behavior, crashes, errors
+- enhancement \u2192 adds or improves functionality
+- refactor \u2192 restructures code without changing behavior
+- chore \u2192 config, tooling, cleanup, dependencies
+- docs \u2192 documentation only
+- test \u2192 tests only
+
+JSON format:
+{
+  "type": "bug | enhancement | chore | refactor | docs | test",
+  "labels": ["label1", "label2"],
+  "confidence": 0.0
+}
+
+Diff:
+${diff}
+`;
+  let text = "";
+  if (provider === "gemini") {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: config.get("geminiModel") || "gemini-3-flash-preview"
+    });
+    const result = await model.generateContent(prompt);
+    text = result.response.text();
+  } else {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: config.get("openaiModel") || "gpt-4o-mini",
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: "You classify code changes." },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    const data = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  }
+  try {
+    const json = extractJson(text);
+    const parsed = JSON.parse(json);
+    if (!parsed.type || !Array.isArray(parsed.labels)) {
+      throw new Error("Invalid classification shape");
+    }
+    return {
+      type: parsed.type,
+      labels: parsed.labels,
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5
+    };
+  } catch (err) {
+    console.warn("Classification parse failed, fallback used:", text);
+    return {
+      type: "chore",
+      labels: ["chore"],
+      confidence: 0
+    };
+  }
+}
+function extractJson(text) {
+  text = text.replace(/```json|```/gi, "").trim();
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error("No JSON object found in model response");
+  }
+  return match[0];
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

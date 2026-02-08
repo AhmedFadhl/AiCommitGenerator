@@ -265,6 +265,7 @@ Commit message:
 
 // The main activate function with the new logic
 export function activate(context: vscode.ExtensionContext) {
+  let classification: IssueClassification | undefined;
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
 
@@ -358,7 +359,12 @@ export function activate(context: vscode.ExtensionContext) {
                     const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
                     const issueTitle = tempMessage.split('\n')[0].trim();
                     const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
-                    const issueLabels = config.get<string[]>('issueLabels', ['enhancement']);
+                    classification = await classifyIssueFromDiff(diff, cancellationToken);
+
+                    const issueLabels = Array.from(new Set([
+                      classification.type,
+                      ...classification.labels
+                    ]));
 
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
 
@@ -602,4 +608,128 @@ Relevant Issue Number (or NONE):
 
   // If the LLM returns a number not in the list, treat it as NONE to prevent hallucination linking
   return null;
+}
+
+
+
+async function classifyIssueFromDiff(
+  diff: string,
+  token: vscode.CancellationToken
+): Promise<IssueClassification> {
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const provider = config.get<string>('provider') || 'gemini';
+  const apiKey = config.get<string>('apiKey');
+
+  if (!apiKey) throw new Error('API key not configured');
+
+  const prompt = `
+Analyze the following Git diff.
+
+Task:
+1. Determine the PRIMARY nature of this change.
+2. Choose ONE type:
+   - bug
+   - enhancement
+   - chore
+   - refactor
+   - docs
+   - test
+3. Assign GitHub-style labels.
+4. IMPORTANT:
+   - Output MUST be raw JSON
+   - Do NOT use markdown
+   - Do NOT add explanations
+   - Do NOT wrap in json
+
+Rules:
+- bug → fixes incorrect behavior, crashes, errors
+- enhancement → adds or improves functionality
+- refactor → restructures code without changing behavior
+- chore → config, tooling, cleanup, dependencies
+- docs → documentation only
+- test → tests only
+
+JSON format:
+{
+  "type": "bug | enhancement | chore | refactor | docs | test",
+  "labels": ["label1", "label2"],
+  "confidence": 0.0
+}
+
+Diff:
+${diff}
+`;
+
+  let text = '';
+
+  if (provider === 'gemini') {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: config.get<string>('geminiModel') || 'gemini-3-flash-preview'
+    });
+
+    const result = await model.generateContent(prompt);
+    text = result.response.text();
+  } else {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.get<string>('openaiModel') || 'gpt-4o-mini',
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: 'You classify code changes.' },
+          { role: 'user', content: prompt }
+        ]
+      })
+    });
+
+    const data: any = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  }
+
+  try {
+    const json = extractJson(text);
+    const parsed = JSON.parse(json);
+
+    // Strong validation (prevents garbage labels)
+    if (
+      !parsed.type ||
+      !Array.isArray(parsed.labels)
+    ) {
+      throw new Error('Invalid classification shape');
+    }
+
+    return {
+      type: parsed.type,
+      labels: parsed.labels,
+      confidence: typeof parsed.confidence === 'number'
+        ? parsed.confidence
+        : 0.5
+    };
+  } catch (err) {
+    console.warn('Classification parse failed, fallback used:', text);
+
+    return {
+      type: 'chore',
+      labels: ['chore'],
+      confidence: 0.0
+    };
+  }
+}
+
+function extractJson(text: string): string {
+  // Remove markdown fences
+  text = text.replace(/```json|```/gi, '').trim();
+
+  // Extract first JSON object defensively
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error('No JSON object found in model response');
+  }
+
+  return match[0];
 }
