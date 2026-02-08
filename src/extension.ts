@@ -89,7 +89,7 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | undefine
 
 async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIssue[]> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const githubToken = config.get<string>('githubToken');
+  const githubToken = config.get<string>('issueTrackerToken');
 
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github.v3+json',
@@ -326,7 +326,7 @@ export function activate(context: vscode.ExtensionContext) {
               outputChannel.appendLine('Attempting to auto-create a new issue...');
 
               // 🔑 ADD PRE-VALIDATION HERE
-              const githubToken = config.get<string>('githubToken');
+              const githubToken = config.get<string>('issueTrackerToken');
               if (!githubToken) {
                 vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
                 outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
@@ -440,7 +440,7 @@ async function createGitHubIssue(
   issueLabels: string[]
 ): Promise<GitHubIssue | undefined> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const githubToken = config.get<string>('githubToken');
+  const githubToken = config.get<string>('issueTrackerToken');
 
   if (!githubToken) {
     vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');

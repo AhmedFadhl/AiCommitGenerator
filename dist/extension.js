@@ -1078,7 +1078,7 @@ function parseGitHubUrl(url) {
 }
 async function fetchGitHubIssues(owner, repo) {
   const config = vscode.workspace.getConfiguration("aiCommitGenerator");
-  const githubToken = config.get("githubToken");
+  const githubToken = config.get("issueTrackerToken");
   const headers = {
     "Accept": "application/vnd.github.v3+json",
     "User-Agent": "VSCode-AI-Commit-Generator"
@@ -1249,7 +1249,7 @@ function activate(context) {
             }
             if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
-              const githubToken = config.get("githubToken");
+              const githubToken = config.get("issueTrackerToken");
               if (!githubToken) {
                 vscode.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
                 outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
@@ -1338,7 +1338,7 @@ function deactivate() {
 }
 async function createGitHubIssue(owner, repo, issueTitle, issueBody, issueLabels) {
   const config = vscode.workspace.getConfiguration("aiCommitGenerator");
-  const githubToken = config.get("githubToken");
+  const githubToken = config.get("issueTrackerToken");
   if (!githubToken) {
     vscode.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
     return void 0;
