@@ -33,6 +33,10 @@
         "command": "ai-commit-generator.createIssueFromChanges",
         "title": "Create Issue from Changes",
         "icon": "$(issue)"
+      },
+      {
+        "command": "ai-commit-generator.githubLogin",
+        "title": "AI Commit Generator: Sign in to GitHub"
       }
     ],
     "configuration": {

@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getGitHubAccessToken } from './githubAuth';
 import * as path from 'path';
 
 const execAsync = promisify(exec);
@@ -97,8 +98,8 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | undefine
 
 async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIssue[]> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const githubToken = config.get<string>('issueTrackerToken');
-
+  // const githubToken = config.get<string>('issueTrackerToken');
+  const githubToken = await resolveGitHubToken();
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'VSCode-AI-Commit-Generator'
@@ -268,6 +269,140 @@ export function activate(context: vscode.ExtensionContext) {
   let classification: IssueClassification | undefined;
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.githubLogin',
+      async () => {
+        await getGitHubAccessToken(true);
+        vscode.window.showInformationMessage('GitHub account connected ✔');
+      }
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.createIssueFromChanges',
+      async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
+        try {
+          vscode.window.showInformationMessage('Analyzing changes to create issue...');
+          if (!sourceControl || !sourceControl.rootUri) {
+            vscode.window.showInformationMessage('No changes detected');
+            return;
+          }
+
+          const repoRoot = sourceControl.rootUri.fsPath;
+          const diff = await getRepoDiff(repoRoot);
+
+          if (!diff.trim()) {
+            vscode.window.showInformationMessage('No changes detected');
+            return;
+          }
+
+          const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+          const issueTracker = config.get<string>('issueTracker');
+          const autoCreateIssues = config.get<boolean>('autoCreateIssues', true);
+          const includeIssueInCommit = config.get<boolean>('includeIssueInCommit', true);
+
+          let issues: GitHubIssue[] = [];
+          let githubInfo: { owner: string; repo: string } | undefined;
+          let issueToLink: GitHubIssue | undefined;
+
+          const cts = new vscode.CancellationTokenSource();
+          const cancellationToken = cts.token;
+
+          // 2. Determine Issue Relevance (Two-Step Logic)
+          if (includeIssueInCommit && githubInfo) {
+
+            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
+            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
+            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+              outputChannel.appendLine('Attempting to auto-create a new issue...');
+
+              // 🔑 ADD PRE-VALIDATION HERE
+              const githubToken = config.get<string>('issueTrackerToken');
+              if (!githubToken) {
+                vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
+                outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
+                return; // Or continue without issue linking
+              }
+
+              try {
+                await vscode.window.withProgress(
+                  {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Creating new issue...',
+                    cancellable: true
+                  },
+                  async (progress, token) => {
+                    token.onCancellationRequested(() => cts.cancel());
+
+                    // Force UI to render before network calls
+                    progress.report({ message: 'Preparing issue content...' });
+                    await new Promise(resolve => setTimeout(resolve, 50));
+
+                    const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
+                    const issueTitle = tempMessage.split('\n')[0].trim();
+                    const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
+                    classification = await classifyIssueFromDiff(diff, cancellationToken);
+
+                    const issueLabels = Array.from(new Set([
+                      classification.type,
+                      ...classification.labels
+                    ]));
+
+                    progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
+
+                    const newIssue = await createGitHubIssue(
+                      githubInfo.owner,
+                      githubInfo.repo,
+                      issueTitle,
+                      issueBody,
+                      issueLabels
+                    );
+
+                    if (newIssue) {
+                      outputChannel.appendLine(`✓ Created issue #${newIssue.number}`);
+                      issueToLink = newIssue;
+                      progress.report({ message: `✓ Issue #${newIssue.number} created` });
+                      await new Promise(resolve => setTimeout(resolve, 400)); // Keep visible
+                      return newIssue;
+                    } else {
+                      throw new Error('GitHub API rejected the request (check token permissions)');
+                    }
+                  }
+                );
+              } catch (error) {
+                const msg = error instanceof Error ? error.message : String(error);
+                outputChannel.appendLine(`❌ Issue creation failed: ${msg}`);
+
+                // Show actionable error to user
+                if (msg.includes('ENOTFOUND') || msg.includes('ERR_INTERNET_DISCONNECTED')) {
+                  vscode.window.showErrorMessage('No internet connection. Cannot create GitHub issue.');
+                } else if (msg.includes('401') || msg.includes('403')) {
+                  vscode.window.showErrorMessage('GitHub token invalid or lacks "repo" scope permission.');
+                } else {
+                  vscode.window.showErrorMessage(`Issue creation failed: ${msg.substring(0, 100)}`);
+                }
+              }
+            }
+
+
+            else if (!githubInfo) {
+              outputChannel.appendLine('⚠️ Cannot create issue: GitHub repository info unavailable');
+            }
+          }
+
+        } catch (err: any) {
+          if (err instanceof vscode.CancellationError) {
+            vscode.window.showInformationMessage('Cancelled');
+            return;
+          }
+          vscode.window.showErrorMessage(err.message || 'Failed');
+        }
+      }
+    )
+  );
+
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -454,7 +589,8 @@ async function createGitHubIssue(
   issueLabels: string[]
 ): Promise<GitHubIssue | undefined> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const githubToken = config.get<string>('issueTrackerToken');
+  // const githubToken = config.get<string>('issueTrackerToken');
+  const githubToken = await resolveGitHubToken();
 
   if (!githubToken) {
     vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
@@ -732,4 +868,16 @@ function extractJson(text: string): string {
   }
 
   return match[0];
+}
+
+
+async function resolveGitHubToken(): Promise<string | undefined> {
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+
+  // 1️⃣ Prefer VS Code GitHub auth
+  const oauthToken = await getGitHubAccessToken(false);
+  if (oauthToken) return oauthToken;
+
+  // 2️⃣ Fallback to manual token
+  return config.get<string>('issueTrackerToken');
 }

@@ -34,7 +34,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode = __toESM(require("vscode"));
+var vscode2 = __toESM(require("vscode"));
 var import_child_process = require("child_process");
 var import_util = require("util");
 
@@ -1045,6 +1045,29 @@ var GoogleGenerativeAI = class {
   }
 };
 
+// src/githubAuth.ts
+var vscode = __toESM(require("vscode"));
+var GITHUB_AUTH_PROVIDER = "github";
+var GITHUB_SCOPES = ["repo", "read:user"];
+async function getGitHubAccessToken(createIfNone = true) {
+  const sessions = await vscode.authentication.getSession(
+    GITHUB_AUTH_PROVIDER,
+    GITHUB_SCOPES
+  );
+  if (sessions && sessions != null) {
+    return sessions.accessToken;
+  }
+  if (!createIfNone) {
+    return void 0;
+  }
+  const session = await vscode.authentication.getSession(
+    GITHUB_AUTH_PROVIDER,
+    GITHUB_SCOPES,
+    { createIfNone: true }
+  );
+  return session?.accessToken;
+}
+
 // src/extension.ts
 var execAsync = (0, import_util.promisify)(import_child_process.exec);
 async function ensureGitRepo(cwd) {
@@ -1077,8 +1100,8 @@ function parseGitHubUrl(url) {
   return void 0;
 }
 async function fetchGitHubIssues(owner, repo) {
-  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
-  const githubToken = config.get("issueTrackerToken");
+  const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
+  const githubToken = await resolveGitHubToken();
   const headers = {
     "Accept": "application/vnd.github.v3+json",
     "User-Agent": "VSCode-AI-Commit-Generator"
@@ -1117,7 +1140,7 @@ function cleanCommitMessage(msg) {
   return msg.replace(/^```[\s\S]*?\n/, "").replace(/```$/, "").trim();
 }
 async function generateCommitMessage(diff, issues, token) {
-  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+  const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
   const provider = config.get("provider") || "gemini";
   const apiKey = config.get("apiKey");
   if (!apiKey) throw new Error("API key not configured");
@@ -1149,13 +1172,13 @@ Commit message:
     const genAI = new GoogleGenerativeAI(apiKey);
     const modelName = config.get("geminiModel") || "gemini-3-flash-preview";
     const model = genAI.getGenerativeModel({ model: modelName });
-    if (token.isCancellationRequested) throw new vscode.CancellationError();
+    if (token.isCancellationRequested) throw new vscode2.CancellationError();
     const result = await model.generateContent(prompt);
     return cleanCommitMessage(result.response.text());
   }
   if (provider === "openai") {
     if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
+      throw new vscode2.CancellationError();
     }
     const model = config.get("openaiModel") || "gpt-4o-mini";
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -1185,7 +1208,7 @@ Commit message:
       throw new Error(`OpenAI API error (${response.status}): ${text}`);
     }
     if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
+      throw new vscode2.CancellationError();
     }
     const data = await response.json();
     let content = data?.choices?.[0]?.message?.content;
@@ -1199,67 +1222,54 @@ Commit message:
 function activate(context) {
   let classification;
   console.log("AI Commit Generator Activated");
-  const outputChannel = vscode.window.createOutputChannel("AI Commit Generator");
+  const outputChannel = vscode2.window.createOutputChannel("AI Commit Generator");
   context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "ai-commit-generator.generateCommitMessage",
+    vscode2.commands.registerCommand(
+      "ai-commit-generator.githubLogin",
+      async () => {
+        await getGitHubAccessToken(true);
+        vscode2.window.showInformationMessage("GitHub account connected \u2714");
+      }
+    )
+  );
+  context.subscriptions.push(
+    vscode2.commands.registerCommand(
+      "ai-commit-generator.createIssueFromChanges",
       async (sourceControl, token) => {
         try {
+          vscode2.window.showInformationMessage("Analyzing changes to create issue...");
           if (!sourceControl || !sourceControl.rootUri) {
-            vscode.window.showInformationMessage("No changes detected");
+            vscode2.window.showInformationMessage("No changes detected");
             return;
           }
           const repoRoot = sourceControl.rootUri.fsPath;
           const diff = await getRepoDiff(repoRoot);
           if (!diff.trim()) {
-            vscode.window.showInformationMessage("No changes detected");
+            vscode2.window.showInformationMessage("No changes detected");
             return;
           }
-          const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+          const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
           const issueTracker = config.get("issueTracker");
           const autoCreateIssues = config.get("autoCreateIssues", true);
           const includeIssueInCommit = config.get("includeIssueInCommit", true);
           let issues = [];
           let githubInfo;
           let issueToLink;
-          if (issueTracker === "github") {
-            const remoteUrl = await getRemoteUrl(repoRoot);
-            if (remoteUrl) {
-              githubInfo = parseGitHubUrl(remoteUrl);
-              if (githubInfo) {
-                outputChannel.appendLine(`Fetching issues for ${githubInfo.owner}/${githubInfo.repo}...`);
-                issues = await fetchGitHubIssues(githubInfo.owner, githubInfo.repo);
-                outputChannel.appendLine(`Found ${issues.length} open issues.`);
-              } else {
-                outputChannel.appendLine("Remote URL is not a recognized GitHub URL. Skipping issue fetch.");
-              }
-            }
-          }
-          const cts = new vscode.CancellationTokenSource();
+          const cts = new vscode2.CancellationTokenSource();
           const cancellationToken = cts.token;
           if (includeIssueInCommit && githubInfo) {
-            if (issues.length > 0) {
-              outputChannel.appendLine("Checking relevance of open issues...");
-              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
-              if (relevantIssueNumber) {
-                issueToLink = issues.find((i) => i.number === relevantIssueNumber);
-                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
-              } else {
-                outputChannel.appendLine("LLM found no relevant open issue.");
-              }
-            }
             if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
               const githubToken = config.get("issueTrackerToken");
               if (!githubToken) {
-                vscode.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+                vscode2.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
                 outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
                 return;
               }
               try {
-                await vscode.window.withProgress(
+                await vscode2.window.withProgress(
                   {
-                    location: vscode.ProgressLocation.Notification,
+                    location: vscode2.ProgressLocation.Notification,
                     title: "Creating new issue...",
                     cancellable: true
                   },
@@ -1298,11 +1308,130 @@ function activate(context) {
                 const msg = error instanceof Error ? error.message : String(error);
                 outputChannel.appendLine(`\u274C Issue creation failed: ${msg}`);
                 if (msg.includes("ENOTFOUND") || msg.includes("ERR_INTERNET_DISCONNECTED")) {
-                  vscode.window.showErrorMessage("No internet connection. Cannot create GitHub issue.");
+                  vscode2.window.showErrorMessage("No internet connection. Cannot create GitHub issue.");
                 } else if (msg.includes("401") || msg.includes("403")) {
-                  vscode.window.showErrorMessage('GitHub token invalid or lacks "repo" scope permission.');
+                  vscode2.window.showErrorMessage('GitHub token invalid or lacks "repo" scope permission.');
                 } else {
-                  vscode.window.showErrorMessage(`Issue creation failed: ${msg.substring(0, 100)}`);
+                  vscode2.window.showErrorMessage(`Issue creation failed: ${msg.substring(0, 100)}`);
+                }
+              }
+            } else if (!githubInfo) {
+              outputChannel.appendLine("\u26A0\uFE0F Cannot create issue: GitHub repository info unavailable");
+            }
+          }
+        } catch (err) {
+          if (err instanceof vscode2.CancellationError) {
+            vscode2.window.showInformationMessage("Cancelled");
+            return;
+          }
+          vscode2.window.showErrorMessage(err.message || "Failed");
+        }
+      }
+    )
+  );
+  context.subscriptions.push(
+    vscode2.commands.registerCommand(
+      "ai-commit-generator.generateCommitMessage",
+      async (sourceControl, token) => {
+        try {
+          if (!sourceControl || !sourceControl.rootUri) {
+            vscode2.window.showInformationMessage("No changes detected");
+            return;
+          }
+          const repoRoot = sourceControl.rootUri.fsPath;
+          const diff = await getRepoDiff(repoRoot);
+          if (!diff.trim()) {
+            vscode2.window.showInformationMessage("No changes detected");
+            return;
+          }
+          const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
+          const issueTracker = config.get("issueTracker");
+          const autoCreateIssues = config.get("autoCreateIssues", true);
+          const includeIssueInCommit = config.get("includeIssueInCommit", true);
+          let issues = [];
+          let githubInfo;
+          let issueToLink;
+          if (issueTracker === "github") {
+            const remoteUrl = await getRemoteUrl(repoRoot);
+            if (remoteUrl) {
+              githubInfo = parseGitHubUrl(remoteUrl);
+              if (githubInfo) {
+                outputChannel.appendLine(`Fetching issues for ${githubInfo.owner}/${githubInfo.repo}...`);
+                issues = await fetchGitHubIssues(githubInfo.owner, githubInfo.repo);
+                outputChannel.appendLine(`Found ${issues.length} open issues.`);
+              } else {
+                outputChannel.appendLine("Remote URL is not a recognized GitHub URL. Skipping issue fetch.");
+              }
+            }
+          }
+          const cts = new vscode2.CancellationTokenSource();
+          const cancellationToken = cts.token;
+          if (includeIssueInCommit && githubInfo) {
+            if (issues.length > 0) {
+              outputChannel.appendLine("Checking relevance of open issues...");
+              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
+              if (relevantIssueNumber) {
+                issueToLink = issues.find((i) => i.number === relevantIssueNumber);
+                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
+              } else {
+                outputChannel.appendLine("LLM found no relevant open issue.");
+              }
+            }
+            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+              outputChannel.appendLine("Attempting to auto-create a new issue...");
+              const githubToken = config.get("issueTrackerToken");
+              if (!githubToken) {
+                vscode2.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+                outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                return;
+              }
+              try {
+                await vscode2.window.withProgress(
+                  {
+                    location: vscode2.ProgressLocation.Notification,
+                    title: "Creating new issue...",
+                    cancellable: true
+                  },
+                  async (progress, token2) => {
+                    token2.onCancellationRequested(() => cts.cancel());
+                    progress.report({ message: "Preparing issue content..." });
+                    await new Promise((resolve) => setTimeout(resolve, 50));
+                    const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
+                    const issueTitle = tempMessage.split("\n")[0].trim();
+                    const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
+                    classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    const issueLabels = Array.from(/* @__PURE__ */ new Set([
+                      classification.type,
+                      ...classification.labels
+                    ]));
+                    progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
+                    const newIssue = await createGitHubIssue(
+                      githubInfo.owner,
+                      githubInfo.repo,
+                      issueTitle,
+                      issueBody,
+                      issueLabels
+                    );
+                    if (newIssue) {
+                      outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
+                      issueToLink = newIssue;
+                      progress.report({ message: `\u2713 Issue #${newIssue.number} created` });
+                      await new Promise((resolve) => setTimeout(resolve, 400));
+                      return newIssue;
+                    } else {
+                      throw new Error("GitHub API rejected the request (check token permissions)");
+                    }
+                  }
+                );
+              } catch (error) {
+                const msg = error instanceof Error ? error.message : String(error);
+                outputChannel.appendLine(`\u274C Issue creation failed: ${msg}`);
+                if (msg.includes("ENOTFOUND") || msg.includes("ERR_INTERNET_DISCONNECTED")) {
+                  vscode2.window.showErrorMessage("No internet connection. Cannot create GitHub issue.");
+                } else if (msg.includes("401") || msg.includes("403")) {
+                  vscode2.window.showErrorMessage('GitHub token invalid or lacks "repo" scope permission.');
+                } else {
+                  vscode2.window.showErrorMessage(`Issue creation failed: ${msg.substring(0, 100)}`);
                 }
               }
             } else if (!githubInfo) {
@@ -1310,9 +1439,9 @@ function activate(context) {
             }
           }
           const issuesForLLM = issueToLink ? [issueToLink] : [];
-          let message = await vscode.window.withProgress(
+          let message = await vscode2.window.withProgress(
             {
-              location: vscode.ProgressLocation.Notification,
+              location: vscode2.ProgressLocation.Notification,
               title: "Generating commit message...",
               cancellable: true
             },
@@ -1327,13 +1456,13 @@ function activate(context) {
             }
             sourceControl.inputBox.value = message;
           }
-          vscode.window.showInformationMessage("Commit message generated \u{1F389}");
+          vscode2.window.showInformationMessage("Commit message generated \u{1F389}");
         } catch (err) {
-          if (err instanceof vscode.CancellationError) {
-            vscode.window.showInformationMessage("Cancelled");
+          if (err instanceof vscode2.CancellationError) {
+            vscode2.window.showInformationMessage("Cancelled");
             return;
           }
-          vscode.window.showErrorMessage(err.message || "Failed");
+          vscode2.window.showErrorMessage(err.message || "Failed");
         }
       }
     )
@@ -1342,10 +1471,10 @@ function activate(context) {
 function deactivate() {
 }
 async function createGitHubIssue(owner, repo, issueTitle, issueBody, issueLabels) {
-  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
-  const githubToken = config.get("issueTrackerToken");
+  const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
+  const githubToken = await resolveGitHubToken();
   if (!githubToken) {
-    vscode.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+    vscode2.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
     return void 0;
   }
   const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
@@ -1380,7 +1509,7 @@ async function createGitHubIssue(owner, repo, issueTitle, issueBody, issueLabels
   }
 }
 async function findRelevantIssue(diff, issues, token) {
-  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+  const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
   const provider = config.get("provider") || "gemini";
   const apiKey = config.get("apiKey");
   if (!apiKey) throw new Error("API key not configured");
@@ -1408,12 +1537,12 @@ Relevant Issue Number (or NONE):
     const genAI = new GoogleGenerativeAI(apiKey);
     const modelName = config.get("geminiModel") || "gemini-3-flash-preview";
     const model = genAI.getGenerativeModel({ model: modelName });
-    if (token.isCancellationRequested) throw new vscode.CancellationError();
+    if (token.isCancellationRequested) throw new vscode2.CancellationError();
     const result = await model.generateContent(prompt);
     responseText = result.response.text().trim();
   } else if (provider === "openai") {
     if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
+      throw new vscode2.CancellationError();
     }
     const model = config.get("openaiModel") || "gpt-4o-mini";
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -1444,7 +1573,7 @@ Relevant Issue Number (or NONE):
       throw new Error(`OpenAI API error (${response.status}): ${text}`);
     }
     if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
+      throw new vscode2.CancellationError();
     }
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content;
@@ -1465,7 +1594,7 @@ Relevant Issue Number (or NONE):
   return null;
 }
 async function classifyIssueFromDiff(diff, token) {
-  const config = vscode.workspace.getConfiguration("aiCommitGenerator");
+  const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
   const provider = config.get("provider") || "gemini";
   const apiKey = config.get("apiKey");
   if (!apiKey) throw new Error("API key not configured");
@@ -1560,6 +1689,12 @@ function extractJson(text) {
     throw new Error("No JSON object found in model response");
   }
   return match[0];
+}
+async function resolveGitHubToken() {
+  const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
+  const oauthToken = await getGitHubAccessToken(false);
+  if (oauthToken) return oauthToken;
+  return config.get("issueTrackerToken");
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
