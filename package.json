@@ -37,7 +37,7 @@
       {
         "command": "ai-commit-generator.createIssueFromChanges",
         "title": "Create Issue from Changes",
-        "icon": "$(issue)"
+        "icon": "$(plus)"
       },
       {
         "command": "ai-commit-generator.githubLogin",
@@ -166,25 +166,21 @@
       "scm/title": [
         {
           "command": "ai-commit-generator.generateCommitMessage",
-          "when": "scmProvider == git",
-          "group": "navigation"
+          "when": "scmProvider == git && !aiCommitGenerating",
+          "group": "navigation",
+          "icon": "$(sparkle)"
+        },
+        {
+          "command": "ai-commit-generator.generating",
+          "when": "scmProvider == git && aiCommitGenerating",
+          "group": "navigation",
+          "icon": "$(sync~spin)"
         },
         {
           "command": "ai-commit-generator.createIssueFromChanges",
           "when": "scmProvider == git",
-          "group": "navigation"
-        }
-      ],
-      "scm/sourceControl": [
-        {
-          "command": "ai-commit-generator.generateCommitMessage",
-          "group": "9_cutcopypaste@2"
-          
-        },
-        {
-          "command": "ai-commit-generator.generating",
-          "group": "9_cutcopypaste@2",
-          "when": "aiCommitGenerating"
+          "group": "navigation",
+          "icon": "$(plus)"
         }
       ]
     }

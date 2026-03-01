@@ -270,6 +270,11 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
 
+  // Function to set generating state for dynamic icon
+  const setGeneratingState = (isGenerating: boolean) => {
+    vscode.commands.executeCommand('setContext', 'aiCommitGenerating', isGenerating);
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.githubLogin',
@@ -414,13 +419,17 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
 
-  context.subscriptions.push(
+context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.generateCommitMessage',
       async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
         try {
+          // Set generating state to show spinning icon
+          setGeneratingState(true);
+
           if (!sourceControl || !sourceControl.rootUri) {
             vscode.window.showInformationMessage('No changes detected');
+            setGeneratingState(false);
             return;
           }
 
@@ -429,6 +438,7 @@ export function activate(context: vscode.ExtensionContext) {
 
           if (!diff.trim()) {
             vscode.window.showInformationMessage('No changes detected');
+            setGeneratingState(false);
             return;
           }
 
@@ -484,6 +494,7 @@ export function activate(context: vscode.ExtensionContext) {
               if (!githubToken) {
                 vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
                 outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
+                setGeneratingState(false);
                 return; // Or continue without issue linking
               }
 
@@ -578,7 +589,13 @@ export function activate(context: vscode.ExtensionContext) {
           }
           vscode.window.showInformationMessage('Commit message generated 🎉');
 
+          // Reset generating state to show sparkle icon again
+          setGeneratingState(false);
+
         } catch (err: any) {
+          // Reset generating state on error
+          setGeneratingState(false);
+          
           if (err instanceof vscode.CancellationError) {
             vscode.window.showInformationMessage('Cancelled');
             return;

@@ -1223,6 +1223,9 @@ function activate(context) {
   let classification;
   console.log("AI Commit Generator Activated");
   const outputChannel = vscode2.window.createOutputChannel("AI Commit Generator");
+  const setGeneratingState = (isGenerating) => {
+    vscode2.commands.executeCommand("setContext", "aiCommitGenerating", isGenerating);
+  };
   context.subscriptions.push(
     vscode2.commands.registerCommand(
       "ai-commit-generator.githubLogin",
@@ -1340,14 +1343,17 @@ function activate(context) {
       "ai-commit-generator.generateCommitMessage",
       async (sourceControl, token) => {
         try {
+          setGeneratingState(true);
           if (!sourceControl || !sourceControl.rootUri) {
             vscode2.window.showInformationMessage("No changes detected");
+            setGeneratingState(false);
             return;
           }
           const repoRoot = sourceControl.rootUri.fsPath;
           const diff = await getRepoDiff(repoRoot);
           if (!diff.trim()) {
             vscode2.window.showInformationMessage("No changes detected");
+            setGeneratingState(false);
             return;
           }
           const config = vscode2.workspace.getConfiguration("aiCommitGenerator");
@@ -1389,6 +1395,7 @@ function activate(context) {
               if (!githubToken) {
                 vscode2.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
                 outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                setGeneratingState(false);
                 return;
               }
               try {
@@ -1463,7 +1470,9 @@ function activate(context) {
             sourceControl.inputBox.value = message;
           }
           vscode2.window.showInformationMessage("Commit message generated \u{1F389}");
+          setGeneratingState(false);
         } catch (err) {
+          setGeneratingState(false);
           if (err instanceof vscode2.CancellationError) {
             vscode2.window.showInformationMessage("Cancelled");
             return;
