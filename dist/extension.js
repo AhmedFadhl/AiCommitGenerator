@@ -1226,6 +1226,23 @@ function activate(context) {
   const setGeneratingState = (isGenerating) => {
     vscode2.commands.executeCommand("setContext", "aiCommitGenerating", isGenerating);
   };
+  const checkGitHubAuth = async (showLoginOption = true) => {
+    const token = await resolveGitHubToken();
+    if (token) return true;
+    if (showLoginOption) {
+      const login = await vscode2.window.showWarningMessage(
+        "GitHub login required. Would you like to sign in?",
+        "Sign in to GitHub",
+        "Cancel"
+      );
+      if (login === "Sign in to GitHub") {
+        await getGitHubAccessToken(true);
+        const newToken = await resolveGitHubToken();
+        return !!newToken;
+      }
+    }
+    return false;
+  };
   context.subscriptions.push(
     vscode2.commands.registerCommand(
       "ai-commit-generator.githubLogin",
@@ -1240,6 +1257,11 @@ function activate(context) {
       "ai-commit-generator.createIssueFromChanges",
       async (sourceControl, token) => {
         try {
+          const isAuthenticated = await checkGitHubAuth();
+          if (!isAuthenticated) {
+            vscode2.window.showWarningMessage("GitHub authentication required to create issues.");
+            return;
+          }
           vscode2.window.showInformationMessage("Analyzing changes to create issue...");
           if (!sourceControl || !sourceControl.rootUri) {
             vscode2.window.showInformationMessage("No changes detected");

@@ -275,6 +275,27 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.executeCommand('setContext', 'aiCommitGenerating', isGenerating);
   };
 
+  // Helper function to check GitHub auth and prompt if needed
+  const checkGitHubAuth = async (showLoginOption: boolean = true): Promise<boolean> => {
+    const token = await resolveGitHubToken();
+    if (token) return true;
+
+    if (showLoginOption) {
+      const login = await vscode.window.showWarningMessage(
+        'GitHub login required. Would you like to sign in?',
+        'Sign in to GitHub',
+        'Cancel'
+      );
+      
+      if (login === 'Sign in to GitHub') {
+        await getGitHubAccessToken(true);
+        const newToken = await resolveGitHubToken();
+        return !!newToken;
+      }
+    }
+    return false;
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.githubLogin',
@@ -287,8 +308,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.createIssueFromChanges',
-      async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
+async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
         try {
+          // Check GitHub auth before proceeding
+          const isAuthenticated = await checkGitHubAuth();
+          if (!isAuthenticated) {
+            vscode.window.showWarningMessage('GitHub authentication required to create issues.');
+            return;
+          }
+
           vscode.window.showInformationMessage('Analyzing changes to create issue...');
           if (!sourceControl || !sourceControl.rootUri) {
             vscode.window.showInformationMessage('No changes detected');
