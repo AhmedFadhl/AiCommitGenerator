@@ -30,6 +30,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "ai-commit-generator.generating",
+        "title": "Generating...",
+        "icon": "$(sync~spin)"
+      },
+      {
         "command": "ai-commit-generator.createIssueFromChanges",
         "title": "Create Issue from Changes",
         "icon": "$(issue)"
@@ -174,6 +179,12 @@
         {
           "command": "ai-commit-generator.generateCommitMessage",
           "group": "9_cutcopypaste@2"
+          
+        },
+        {
+          "command": "ai-commit-generator.generating",
+          "group": "9_cutcopypaste@2",
+          "when": "aiCommitGenerating"
         }
       ]
     }

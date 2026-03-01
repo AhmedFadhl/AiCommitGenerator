@@ -307,11 +307,17 @@ export function activate(context: vscode.ExtensionContext) {
           let githubInfo: { owner: string; repo: string } | undefined;
           let issueToLink: GitHubIssue | undefined;
 
+          // FIX: Get GitHub repo info - this was missing!
+          const remoteUrl = await getRemoteUrl(repoRoot);
+          if (remoteUrl) {
+            githubInfo = parseGitHubUrl(remoteUrl);
+          }
+
           const cts = new vscode.CancellationTokenSource();
           const cancellationToken = cts.token;
 
           // 2. Determine Issue Relevance (Two-Step Logic)
-          if (includeIssueInCommit && githubInfo) {
+          if (githubInfo) {
 
             // Step 2b: If no relevant issue is found, attempt to auto-create a new one
             // Step 2b: If no relevant issue is found, attempt to auto-create a new one
@@ -350,6 +356,9 @@ export function activate(context: vscode.ExtensionContext) {
                       ...classification.labels
                     ]));
 
+                    // Get current user for auto-assignment
+                    const currentUser = await getCurrentGitHubUsername();
+
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
 
                     const newIssue = await createGitHubIssue(
@@ -357,7 +366,8 @@ export function activate(context: vscode.ExtensionContext) {
                       githubInfo.repo,
                       issueTitle,
                       issueBody,
-                      issueLabels
+                      issueLabels,
+                      currentUser
                     );
 
                     if (newIssue) {
@@ -586,7 +596,8 @@ async function createGitHubIssue(
   repo: string,
   issueTitle: string,
   issueBody: string,
-  issueLabels: string[]
+  issueLabels: string[],
+  assignee?: string
 ): Promise<GitHubIssue | undefined> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
   // const githubToken = config.get<string>('issueTrackerToken');
@@ -605,11 +616,18 @@ async function createGitHubIssue(
     'Content-Type': 'application/json'
   };
 
-  const body = JSON.stringify({
+  const requestBody: Record<string, any> = {
     title: issueTitle,
     body: issueBody,
     labels: issueLabels
-  });
+  };
+
+  // Add assignee if provided
+  if (assignee) {
+    requestBody.assignees = [assignee];
+  }
+
+  const body = JSON.stringify(requestBody);
 
   try {
     const response = await fetch(url, {
@@ -879,5 +897,27 @@ async function resolveGitHubToken(): Promise<string | undefined> {
   if (oauthToken) return oauthToken;
 
   // 2️⃣ Fallback to manual token
-  return config.get<string>('issueTrackerToken');
+return config.get<string>('issueTrackerToken');
+}
+
+async function getCurrentGitHubUsername(): Promise<string | undefined> {
+  const githubToken = await resolveGitHubToken();
+  if (!githubToken) return undefined;
+
+  try {
+    const response = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `token ${githubToken}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) return undefined;
+
+    const data = await response.json() as any;
+    return data.login;
+  } catch (err) {
+    console.error('Error getting GitHub username:', err);
+    return undefined;
+  }
 }
