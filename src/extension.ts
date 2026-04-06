@@ -613,9 +613,15 @@ context.subscriptions.push(
 
           if (sourceControl) {
             if (issuesToLink.length > 0) {
-              // Append all issue references
-              const issueRefs = issuesToLink.map(i => ` #${i.number}`).join('');
-              message = message + issueRefs;
+              // Append issues ONLY if they are not already in the AI-generated message
+              const issueRefs = issuesToLink
+                .filter(i => !message.includes(`#${i.number}`))
+                .map(i => ` #${i.number}`)
+                .join('');
+
+              if (issueRefs) {
+                message = message + issueRefs;
+              }
             }
             sourceControl.inputBox.value = message;
           }
