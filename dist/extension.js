@@ -1079,7 +1079,7 @@ async function findRelevantIssue(diff, issues, token) {
     (i) => `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 800).replace(/\n/g, " ")}${i.body.length > 800 ? "..." : ""}`
   ).join("\n");
   const prompt = `
-Analyze the Git diff below and identify if it DIRECTLY addresses one of the open issues.
+Analyze the Git diff below and identify if it DIRECTLY addresses one or more of the open issues.
 
 CRITERIA FOR A MATCH:
 1. The diff implements a feature requested in the issue.
@@ -1098,12 +1098,12 @@ Diff:
 ${diff}
 
 Task:
-- If a relevant issue exists, respond ONLY with the issue number (e.g., "123").
+- If relevant issues exist, respond ONLY with a comma-separated list of issue numbers (e.g., "123, 125, 401").
 - If NO issue is directly and necessarily addressed, respond ONLY with "NONE".
 - DO NOT explain your reasoning.
 - DO NOT hallucinate issue numbers.
 
-Relevant Issue Number (or NONE):
+Relevant Issue Numbers (or NONE):
 `;
   let responseText = "";
   if (provider === "gemini") {
@@ -1131,7 +1131,7 @@ Relevant Issue Number (or NONE):
         messages: [
           {
             role: "system",
-            content: "You are an expert Git assistant. You identify the single most relevant issue number for a diff. Respond ONLY with the number or NONE."
+            content: 'You are an expert Git assistant. You identify ALL relevant issue numbers for a diff. Respond ONLY with comma-separated numbers (e.g., "101, 105") or NONE.'
           },
           {
             role: "user",
@@ -1161,11 +1161,18 @@ Relevant Issue Number (or NONE):
   if (responseText.toUpperCase().includes("NONE")) {
     return null;
   }
-  const issueNumber = parseInt(responseText.replace(/[^0-9]/g, ""), 10);
-  if (issues.some((i) => i.number === issueNumber)) {
-    return issueNumber;
+  const issueNumbers = [];
+  const parts = responseText.split(",");
+  for (const part of parts) {
+    const cleaned = part.trim().replace(/[^0-9]/g, "");
+    if (cleaned) {
+      const issueNumber = parseInt(cleaned, 10);
+      if (issues.some((i) => i.number === issueNumber)) {
+        issueNumbers.push(issueNumber);
+      }
+    }
   }
-  return null;
+  return issueNumbers.length > 0 ? issueNumbers : null;
 }
 
 // src/extension.ts
@@ -1261,10 +1268,10 @@ Rules:
 - Detailed body explaining WHAT and WHY
 
 ISSUE LINKING:
-${issues.length > 0 ? `- The following issue was identified as highly relevant: #${issues[0].number}
-- If the changes DIRECTLY fix this issue, include "Closes #<ID>" in the body.
-- If the changes are just related to this issue, include "Relates to #<ID>".
-- If no issue truly matches, do not include any reference.` : "- No relevant issue identified. Do not include issue references."}
+${issues.length > 0 ? `- The following issues were identified as relevant: ${issues.map((i) => `#${i.number}`).join(", ")}
+- If the changes DIRECTLY fix an issue, include "Closes #<ID>" in the body.
+- If the changes are just related to an issue, include "Relates to #<ID>".
+- Include references for ALL identified issues as appropriate.` : "- No relevant issues identified. Do not include issue references."}
 
 Diff:
 ${diff}
@@ -1382,7 +1389,7 @@ function activate(context) {
           const includeIssueInCommit = config.get("includeIssueInCommit", true);
           let issues = [];
           let githubInfo;
-          let issueToLink;
+          let issuesToLink = [];
           const remoteUrl = await getRemoteUrl(repoRoot);
           if (remoteUrl) {
             githubInfo = parseGitHubUrl(remoteUrl);
@@ -1390,7 +1397,7 @@ function activate(context) {
           const cts = new vscode3.CancellationTokenSource();
           const cancellationToken = cts.token;
           if (githubInfo) {
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
               const githubToken = config.get("issueTrackerToken");
               if (!githubToken) {
@@ -1429,7 +1436,7 @@ function activate(context) {
                     );
                     if (newIssue) {
                       outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `\u2713 Issue #${newIssue.number} created` });
                       await new Promise((resolve) => setTimeout(resolve, 400));
                       return newIssue;
@@ -1487,7 +1494,7 @@ function activate(context) {
           const includeIssueInCommit = config.get("includeIssueInCommit", true);
           let issues = [];
           let githubInfo;
-          let issueToLink;
+          let issuesToLink = [];
           if (issueTracker === "github") {
             const remoteUrl = await getRemoteUrl(repoRoot);
             if (remoteUrl) {
@@ -1506,15 +1513,15 @@ function activate(context) {
           if (includeIssueInCommit && githubInfo) {
             if (issues.length > 0) {
               outputChannel.appendLine("Checking relevance of open issues...");
-              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
-              if (relevantIssueNumber) {
-                issueToLink = issues.find((i) => i.number === relevantIssueNumber);
-                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
+              const relevantIssueNumbers = await findRelevantIssue(diff, issues, cancellationToken);
+              if (relevantIssueNumbers && relevantIssueNumbers.length > 0) {
+                issuesToLink = issues.filter((i) => relevantIssueNumbers.includes(i.number));
+                outputChannel.appendLine(`LLM identified relevant issues: ${issuesToLink.map((i) => `#${i.number}`).join(", ")}`);
               } else {
-                outputChannel.appendLine("LLM found no relevant open issue.");
+                outputChannel.appendLine("LLM found no relevant open issues.");
               }
             }
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
               const githubToken = config.get("issueTrackerToken");
               if (!githubToken) {
@@ -1552,7 +1559,7 @@ function activate(context) {
                     );
                     if (newIssue) {
                       outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `\u2713 Issue #${newIssue.number} created` });
                       await new Promise((resolve) => setTimeout(resolve, 400));
                       return newIssue;
@@ -1576,7 +1583,7 @@ function activate(context) {
               outputChannel.appendLine("\u26A0\uFE0F Cannot create issue: GitHub repository info unavailable");
             }
           }
-          const issuesForLLM = issueToLink ? [issueToLink] : [];
+          const issuesForLLM = issuesToLink.length > 0 ? issuesToLink : [];
           let message = await vscode3.window.withProgress(
             {
               location: vscode3.ProgressLocation.Notification,
@@ -1589,8 +1596,9 @@ function activate(context) {
             }
           );
           if (sourceControl) {
-            if (issueToLink && issueToLink.number) {
-              message = message + "\n #" + issueToLink.number;
+            if (issuesToLink.length > 0) {
+              const issueRefs = issuesToLink.map((i) => ` #${i.number}`).join("");
+              message = message + issueRefs;
             }
             sourceControl.inputBox.value = message;
           }

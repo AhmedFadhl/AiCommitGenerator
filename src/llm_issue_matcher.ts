@@ -5,17 +5,17 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GitHubIssue } from './extension'; // Assuming GitHubIssue is exported from extension.ts
 
 /**
- * Asks the LLM to identify the most relevant issue from the list or confirm that none are relevant.
+ * Asks the LLM to identify ALL relevant issues from the list or confirm that none are relevant.
  * @param diff The git diff content.
  * @param issues The list of open GitHub issues.
  * @param token Cancellation token.
- * @returns The number of the most relevant issue, or null if none are relevant.
+ * @returns An array of relevant issue numbers, or null if none are relevant.
  */
 export async function findRelevantIssue(
   diff: string,
   issues: GitHubIssue[],
   token: vscode.CancellationToken
-): Promise<number | null> {
+): Promise<number[] | null> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
   const provider = config.get<string>('provider') || 'gemini';
   const apiKey = config.get<string>('apiKey');
@@ -28,7 +28,7 @@ export async function findRelevantIssue(
   ).join('\n');
 
   const prompt = `
-Analyze the Git diff below and identify if it DIRECTLY addresses one of the open issues.
+Analyze the Git diff below and identify if it DIRECTLY addresses one or more of the open issues.
 
 CRITERIA FOR A MATCH:
 1. The diff implements a feature requested in the issue.
@@ -47,12 +47,12 @@ Diff:
 ${diff}
 
 Task:
-- If a relevant issue exists, respond ONLY with the issue number (e.g., "123").
+- If relevant issues exist, respond ONLY with a comma-separated list of issue numbers (e.g., "123, 125, 401").
 - If NO issue is directly and necessarily addressed, respond ONLY with "NONE".
 - DO NOT explain your reasoning.
 - DO NOT hallucinate issue numbers.
 
-Relevant Issue Number (or NONE):
+Relevant Issue Numbers (or NONE):
 `;
 
   let responseText = '';
@@ -90,7 +90,7 @@ Relevant Issue Number (or NONE):
         messages: [
           {
             role: 'system',
-            content: 'You are an expert Git assistant. You identify the single most relevant issue number for a diff. Respond ONLY with the number or NONE.'
+            content: 'You are an expert Git assistant. You identify ALL relevant issue numbers for a diff. Respond ONLY with comma-separated numbers (e.g., "101, 105") or NONE.'
           },
           {
             role: 'user',
@@ -125,13 +125,21 @@ Relevant Issue Number (or NONE):
     return null;
   }
 
-  const issueNumber = parseInt(responseText.replace(/[^0-9]/g, ''), 10);
-
-  // Basic validation to ensure the number is one of the provided issues
-  if (issues.some(i => i.number === issueNumber)) {
-    return issueNumber;
+  // Parse comma-separated list of issue numbers
+  const issueNumbers: number[] = [];
+  const parts = responseText.split(',');
+  
+  for (const part of parts) {
+    const cleaned = part.trim().replace(/[^0-9]/g, '');
+    if (cleaned) {
+      const issueNumber = parseInt(cleaned, 10);
+      // Validate that the number is one of the provided issues
+      if (issues.some(i => i.number === issueNumber)) {
+        issueNumbers.push(issueNumber);
+      }
+    }
   }
 
-  // If the LLM returns a number not in the list, treat it as NONE to prevent hallucination linking
-  return null;
+  // Return null if no valid issues found (prevents hallucination linking)
+  return issueNumbers.length > 0 ? issueNumbers : null;
 }

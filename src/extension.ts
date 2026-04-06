@@ -190,11 +190,11 @@ Rules:
 
 ISSUE LINKING:
 ${issues.length > 0
-      ? `- The following issue was identified as highly relevant: #${issues[0].number}
-- If the changes DIRECTLY fix this issue, include "Closes #<ID>" in the body.
-- If the changes are just related to this issue, include "Relates to #<ID>".
-- If no issue truly matches, do not include any reference.`
-      : '- No relevant issue identified. Do not include issue references.'}
+      ? `- The following issues were identified as relevant: ${issues.map(i => `#${i.number}`).join(', ')}
+- If the changes DIRECTLY fix an issue, include "Closes #<ID>" in the body.
+- If the changes are just related to an issue, include "Relates to #<ID>".
+- Include references for ALL identified issues as appropriate.`
+      : '- No relevant issues identified. Do not include issue references.'}
 
 Diff:
 ${diff}
@@ -342,7 +342,7 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
 
           let issues: GitHubIssue[] = [];
           let githubInfo: { owner: string; repo: string } | undefined;
-          let issueToLink: GitHubIssue | undefined;
+          let issuesToLink: GitHubIssue[] = [];
 
           // FIX: Get GitHub repo info - this was missing!
           const remoteUrl = await getRemoteUrl(repoRoot);
@@ -356,9 +356,8 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
           // 2. Determine Issue Relevance (Two-Step Logic)
           if (githubInfo) {
 
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            // Step 2b: If no relevant issues are found, attempt to auto-create a new one
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine('Attempting to auto-create a new issue...');
 
               // 🔑 ADD PRE-VALIDATION HERE
@@ -409,7 +408,7 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
 
                     if (newIssue) {
                       outputChannel.appendLine(`✓ Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `✓ Issue #${newIssue.number} created` });
                       await new Promise(resolve => setTimeout(resolve, 400)); // Keep visible
                       return newIssue;
@@ -481,7 +480,7 @@ context.subscriptions.push(
 
           let issues: GitHubIssue[] = [];
           let githubInfo: { owner: string; repo: string } | undefined;
-          let issueToLink: GitHubIssue | undefined;
+          let issuesToLink: GitHubIssue[] = [];
 
           // 1. Fetch GitHub Issues
           if (issueTracker === 'github') {
@@ -504,21 +503,20 @@ context.subscriptions.push(
           // 2. Determine Issue Relevance (Two-Step Logic)
           if (includeIssueInCommit && githubInfo) {
             if (issues.length > 0) {
-              // Step 2a: Ask LLM to find the most relevant issue among the open ones
+              // Step 2a: Ask LLM to find ALL relevant issues among the open ones
               outputChannel.appendLine('Checking relevance of open issues...');
-              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
+              const relevantIssueNumbers = await findRelevantIssue(diff, issues, cancellationToken);
 
-              if (relevantIssueNumber) {
-                issueToLink = issues.find(i => i.number === relevantIssueNumber);
-                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
+              if (relevantIssueNumbers && relevantIssueNumbers.length > 0) {
+                issuesToLink = issues.filter(i => relevantIssueNumbers.includes(i.number));
+                outputChannel.appendLine(`LLM identified relevant issues: ${issuesToLink.map(i => `#${i.number}`).join(', ')}`);
               } else {
-                outputChannel.appendLine('LLM found no relevant open issue.');
+                outputChannel.appendLine('LLM found no relevant open issues.');
               }
             }
 
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            // Step 2b: If no relevant issues are found, attempt to auto-create a new one
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine('Attempting to auto-create a new issue...');
 
               // 🔑 ADD PRE-VALIDATION HERE
@@ -566,7 +564,7 @@ context.subscriptions.push(
 
                     if (newIssue) {
                       outputChannel.appendLine(`✓ Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `✓ Issue #${newIssue.number} created` });
                       await new Promise(resolve => setTimeout(resolve, 400)); // Keep visible
                       return newIssue;
@@ -597,8 +595,8 @@ context.subscriptions.push(
           }
 
           // 3. Final Commit Message Generation
-          // If an issue was found or created, ensure the LLM only sees that one issue to link to.
-          const issuesForLLM = issueToLink ? [issueToLink] : [];
+          // If issues were found or created, ensure the LLM sees ALL relevant issues to link to.
+          const issuesForLLM = issuesToLink.length > 0 ? issuesToLink : [];
 
           let message = await vscode.window.withProgress(
             {
@@ -608,14 +606,16 @@ context.subscriptions.push(
             },
             async (_, token) => {
               token.onCancellationRequested(() => cts.cancel());
-              // Pass only the relevant issue (or none) to the LLM
+              // Pass all relevant issues (or none) to the LLM
               return generateCommitMessage(diff, issuesForLLM, cancellationToken);
             }
           );
 
           if (sourceControl) {
-            if (issueToLink && issueToLink.number) {
-              message = message + "\n #" + issueToLink.number
+            if (issuesToLink.length > 0) {
+              // Append all issue references
+              const issueRefs = issuesToLink.map(i => ` #${i.number}`).join('');
+              message = message + issueRefs;
             }
             sourceControl.inputBox.value = message;
           }
