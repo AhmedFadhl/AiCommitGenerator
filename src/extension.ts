@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getGitHubAccessToken } from './githubAuth';
 import * as path from 'path';
+import { findRelevantIssue } from './llm_issue_matcher';
 
 const execAsync = promisify(exec);
 
@@ -181,16 +182,19 @@ async function generateCommitMessage(
 Generate a semantic Git commit message based on the diff below.
 
 Rules:
-- Imperative mood
+- Imperative mood (e.g., "Add feature" not "Added feature")
 - Prefix: feat | fix | refactor | chore | docs | test
-- 50 char subject
+- 50 char subject line
 - Blank line
-- Explain WHAT and WHY
-${issues.length > 0
-      ? '- **CRITICAL**: Only include "Closes #<ID>" or "Relates to #<ID>" if the changes are a DIRECT and NECESSARY part of implementing or fixing the issue. If no issue is directly addressed, DO NOT include any issue reference.'
-      : ''}
+- Detailed body explaining WHAT and WHY
 
-${issuesContext}
+ISSUE LINKING:
+${issues.length > 0
+      ? `- The following issue was identified as highly relevant: #${issues[0].number}
+- If the changes DIRECTLY fix this issue, include "Closes #<ID>" in the body.
+- If the changes are just related to this issue, include "Relates to #<ID>".
+- If no issue truly matches, do not include any reference.`
+      : '- No relevant issue identified. Do not include issue references.'}
 
 Diff:
 ${diff}
@@ -698,116 +702,7 @@ async function createGitHubIssue(
 
 
 }
-async function findRelevantIssue(
-  diff: string,
-  issues: GitHubIssue[],
-  token: vscode.CancellationToken,
-): Promise<number | null> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const provider = config.get<string>('provider') || 'gemini';
-  const apiKey = config.get<string>('apiKey');
-
-  if (!apiKey) throw new Error('API key not configured');
-
-  const issuesContext = issues.map(i =>
-    `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 150).replace(/\n/g, ' ')}...`
-  ).join('\n');
-
-  const prompt = `
-Analyze the provided Git diff and the list of open GitHub issues.
-
-Task:
-1. Determine which single issue, if any, is the MOST DIRECTLY and NECESSARILY addressed by the changes in the diff.
-2. If a relevant issue is found, respond ONLY with the issue number (e.g., "278").
-3. If NO issue is directly and necessarily addressed, respond ONLY with the word "NONE".
-
-Open GitHub Issues:
-${issuesContext}
-
-Diff:
-${diff}
-
-Relevant Issue Number (or NONE):
-`;
-
-  let responseText = ''; // Initialize responseText here
-
-  if (provider === 'gemini') {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = config.get<string>('geminiModel') || 'gemini-3-flash-preview';
-    const model = genAI.getGenerativeModel({ model: modelName });
-
-    if (token.isCancellationRequested) throw new vscode.CancellationError();
-
-    const result = await model.generateContent(prompt);
-    responseText = result.response.text().trim();
-
-  } else if (provider === 'openai') {
-    if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
-    }
-
-    const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at identifying the single most relevant GitHub issue number for a given code change. Respond ONLY with the issue number or the word NONE.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1, // Lower temperature for deterministic output
-        max_tokens: 10
-      })
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${text}`);
-    }
-
-    if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
-    }
-
-    const data: any = await response.json();
-
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('Invalid OpenAI response');
-    }
-    responseText = content.trim(); // Assign the content to responseText
-
-  } else {
-    throw new Error(`Unsupported provider: ${provider}`);
-  }
-
-  if (responseText.toUpperCase() === 'NONE') {
-    return null;
-  }
-
-  const issueNumber = parseInt(responseText.replace(/[^0-9]/g, ''), 10);
-
-  // Basic validation to ensure the number is one of the provided issues
-  if (issues.some(i => i.number === issueNumber)) {
-    // vscode.window.showInformationMessage(`Relevant issue found: #${issueNumber}`); // Removed for cleaner output
-    return issueNumber;
-  }
-
-  // If the LLM returns a number not in the list, treat it as NONE to prevent hallucination linking
-  return null;
-}
+// findRelevantIssue removed (imported from llm_issue_matcher.ts)
 
 
 

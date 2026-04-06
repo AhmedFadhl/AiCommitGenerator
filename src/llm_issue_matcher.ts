@@ -11,7 +11,7 @@ import { GitHubIssue } from './extension'; // Assuming GitHubIssue is exported f
  * @param token Cancellation token.
  * @returns The number of the most relevant issue, or null if none are relevant.
  */
-async function findRelevantIssue(
+export async function findRelevantIssue(
   diff: string,
   issues: GitHubIssue[],
   token: vscode.CancellationToken
@@ -22,23 +22,35 @@ async function findRelevantIssue(
 
   if (!apiKey) throw new Error('API key not configured');
 
+  // MODIFICATION: Increase body context to 800 chars for better accuracy
   const issuesContext = issues.map(i =>
-    `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 150).replace(/\n/g, ' ')}...`
+    `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 800).replace(/\n/g, ' ')}${i.body.length > 800 ? '...' : ''}`
   ).join('\n');
 
   const prompt = `
-Analyze the provided Git diff and the list of open GitHub issues.
+Analyze the Git diff below and identify if it DIRECTLY addresses one of the open issues.
 
-Task:
-1. Determine which single issue, if any, is the MOST DIRECTLY and NECESSARILY addressed by the changes in the diff.
-2. If a relevant issue is found, respond ONLY with the issue number (e.g., "278").
-3. If NO issue is directly and necessarily addressed, respond ONLY with the word "NONE".
+CRITERIA FOR A MATCH:
+1. The diff implements a feature requested in the issue.
+2. The diff fixes a bug described in the issue.
+3. The diff performs a refactor specifically requested (e.g., "Refactor X module").
+
+CRITERIA FOR "NONE":
+1. The diff is a generic chore/cleanup not explicitly mentioned in any issue.
+2. The diff addresses a problem that is "similar" to an issue but not the exact one.
+3. You are not at least 90% confident in the match.
 
 Open GitHub Issues:
 ${issuesContext}
 
 Diff:
 ${diff}
+
+Task:
+- If a relevant issue exists, respond ONLY with the issue number (e.g., "123").
+- If NO issue is directly and necessarily addressed, respond ONLY with "NONE".
+- DO NOT explain your reasoning.
+- DO NOT hallucinate issue numbers.
 
 Relevant Issue Number (or NONE):
 `;
@@ -53,39 +65,46 @@ Relevant Issue Number (or NONE):
 
     const result = await model.generateContent(prompt);
     responseText = result.response.text().trim();
-  } else if (provider === 'openai') {
+  } else if (provider === 'openai' || provider === 'openrouter') {
     if (token.isCancellationRequested) {
       throw new vscode.CancellationError();
     }
 
-    const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
+    const model = provider === 'openai' 
+      ? (config.get<string>('openaiModel') || 'gpt-4o-mini')
+      : (config.get<string>('openrouterModel') || 'qwen/qwen3-coder:free');
+    
+    const baseUrl = provider === 'openai' 
+      ? 'https://api.openai.com/v1/chat/completions'
+      : 'https://openrouter.ai/api/v1/chat/completions';
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://github.com/AhmedFadhl/AiCommitGenerator' } : {})
       },
       body: JSON.stringify({
         model,
         messages: [
           {
             role: 'system',
-            content: 'You write concise, semantic Git commit messages.'
+            content: 'You are an expert Git assistant. You identify the single most relevant issue number for a diff. Respond ONLY with the number or NONE.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.3,
-        max_tokens: 200
+        temperature: 0.1,
+        max_tokens: 10
       })
     });
 
     if (!response.ok) {
-      responseText = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${responseText}`);
+      const errorText = await response.text();
+      throw new Error(`${provider} API error (${response.status}): ${errorText}`);
     }
 
     if (token.isCancellationRequested) {
@@ -93,19 +112,16 @@ Relevant Issue Number (or NONE):
     }
 
     const data: any = await response.json();
-
     const content = data?.choices?.[0]?.message?.content;
     if (!content) {
-      throw new Error('Invalid OpenAI response');
+      throw new Error(`Invalid ${provider} response`);
     }
-
-  }
-  else {
-
+    responseText = content.trim();
+  } else {
     throw new Error(`Unsupported provider: ${provider}`);
   }
 
-  if (responseText.toUpperCase() === 'NONE') {
+  if (responseText.toUpperCase().includes('NONE')) {
     return null;
   }
 
