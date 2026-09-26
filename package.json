@@ -2,7 +2,7 @@
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
   "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
@@ -75,7 +75,7 @@
         },
         "aiCommitGenerator.geminiModel": {
           "type": "string",
-          "default": "gemini-3-flash-preview",
+          "default": "gemini-3.1-flash-lite-preview",
           "enum": [
             "gemini-2.0-flash",
             "gemini-2.5-flash",
@@ -83,7 +83,8 @@
             "gemini-2.5-pro",
             "gemini-3-flash-preview",
             "gemini-1.5-flash",
-            "gemini-1.5-pro"
+            "gemini-1.5-pro",
+            "gemini-3.1-flash-lite-preview"
           ],
           "description": "Gemini model to use."
         },
@@ -195,6 +196,11 @@
           "type": "boolean",
           "default": true,
           "description": "Include issue reference in commit message"
+        },
+        "aiCommitGenerator.projectContext": {
+          "type": "string",
+          "default": "",
+          "description": "The name of the project/context to associate with issues (used as a label or prefix)."
         }
       }
     },

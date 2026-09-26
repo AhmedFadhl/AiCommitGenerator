@@ -261,6 +261,66 @@ Commit message:
   }
 
 
+  if (provider === 'ollama') {
+    if (token.isCancellationRequested) throw new vscode.CancellationError();
+
+    const model = config.get<string>('ollamaModel') || 'gemma2:9b';
+    const endpoint = config.get<string>('ollamaEndpoint') || 'http://localhost:11434';
+
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.3,
+          num_predict: 500
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Ollama error (${response.status}): ${text}`);
+    }
+
+    const data: any = await response.json();
+    return cleanCommitMessage(data.response);
+  }
+
+  if (provider === 'deepseek') {
+    if (token.isCancellationRequested) throw new vscode.CancellationError();
+
+    const model = config.get<string>('deepseekModel') || 'deepseek-chat';
+
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'You write concise, semantic Git commit messages.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`DeepSeek error (${response.status}): ${text}`);
+    }
+
+    const data: any = await response.json();
+    return cleanCommitMessage(data.choices?.[0]?.message?.content || '');
+  }
+
   throw new Error(`Unsupported provider: ${provider}`);
 }
 
@@ -360,12 +420,12 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
             if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine('Attempting to auto-create a new issue...');
 
-              // 🔑 ADD PRE-VALIDATION HERE
-              const githubToken = config.get<string>('issueTrackerToken');
+              // 🔑 Use resolveGitHubToken instead of direct config access
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
-                outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
-                return; // Or continue without issue linking
+                vscode.window.showWarningMessage('GitHub authentication required to create issues.');
+                outputChannel.appendLine('⚠️ GitHub authentication missing. Skipping issue creation.');
+                return;
               }
 
               try {
@@ -387,9 +447,11 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
                     const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
                     classification = await classifyIssueFromDiff(diff, cancellationToken);
 
+                    const projectContext = config.get<string>('projectContext');
                     const issueLabels = Array.from(new Set([
                       classification.type,
-                      ...classification.labels
+                      ...classification.labels,
+                      ...(projectContext ? [projectContext] : [])
                     ]));
 
                     // Get current user for auto-assignment
@@ -519,13 +581,13 @@ context.subscriptions.push(
             if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine('Attempting to auto-create a new issue...');
 
-              // 🔑 ADD PRE-VALIDATION HERE
-              const githubToken = config.get<string>('issueTrackerToken');
+              // 🔑 Use resolveGitHubToken instead of direct config access
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
-                outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
+                vscode.window.showWarningMessage('GitHub authentication required to create issues.');
+                outputChannel.appendLine('⚠️ GitHub authentication missing. Skipping issue creation.');
                 setGeneratingState(false);
-                return; // Or continue without issue linking
+                return;
               }
 
               try {
@@ -547,10 +609,15 @@ context.subscriptions.push(
                     const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
                     classification = await classifyIssueFromDiff(diff, cancellationToken);
 
+                    const projectContext = config.get<string>('projectContext');
                     const issueLabels = Array.from(new Set([
                       classification.type,
-                      ...classification.labels
+                      ...classification.labels,
+                      ...(projectContext ? [projectContext] : [])
                     ]));
+
+                    // Get current user for auto-assignment
+                    const currentUser = await getCurrentGitHubUsername();
 
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
 
@@ -559,7 +626,8 @@ context.subscriptions.push(
                       githubInfo.repo,
                       issueTitle,
                       issueBody,
-                      issueLabels
+                      issueLabels,
+                      currentUser
                     );
 
                     if (newIssue) {
@@ -659,7 +727,7 @@ async function createGitHubIssue(
   const githubToken = await resolveGitHubToken();
 
   if (!githubToken) {
-    vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
+    vscode.window.showWarningMessage('GitHub authentication required. Please sign in or provide a token.');
     return undefined;
   }
 
@@ -770,7 +838,7 @@ ${diff}
 
     const result = await model.generateContent(prompt);
     text = result.response.text();
-  } else {
+  } else if (provider === 'openai') {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -779,6 +847,45 @@ ${diff}
       },
       body: JSON.stringify({
         model: config.get<string>('openaiModel') || 'gpt-4o-mini',
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: 'You classify code changes.' },
+          { role: 'user', content: prompt }
+        ]
+      })
+    });
+
+    const data: any = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  } else if (provider === 'ollama') {
+    const model = config.get<string>('ollamaModel') || 'gemma2:9b';
+    const endpoint = config.get<string>('ollamaEndpoint') || 'http://localhost:11434';
+
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: { temperature: 0.1 }
+      })
+    });
+
+    if (!response.ok) throw new Error(`Ollama classification error: ${response.status}`);
+    const data: any = await response.json();
+    text = data.response;
+  } else if (provider === 'deepseek') {
+    const model = config.get<string>('deepseekModel') || 'deepseek-chat';
+
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
         temperature: 0.1,
         messages: [
           { role: 'system', content: 'You classify code changes.' },

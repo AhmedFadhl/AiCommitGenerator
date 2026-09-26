@@ -1470,9 +1470,11 @@ function activate(context) {
                     const issueTitle = tempMessage.split("\n")[0].trim();
                     const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
                     classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    const projectContext = config.get("projectContext");
                     const issueLabels = Array.from(/* @__PURE__ */ new Set([
                       classification.type,
-                      ...classification.labels
+                      ...classification.labels,
+                      ...projectContext ? [projectContext] : []
                     ]));
                     const currentUser = await getCurrentGitHubUsername();
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
@@ -1595,17 +1597,21 @@ function activate(context) {
                     const issueTitle = tempMessage.split("\n")[0].trim();
                     const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
                     classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    const projectContext = config.get("projectContext");
                     const issueLabels = Array.from(/* @__PURE__ */ new Set([
                       classification.type,
-                      ...classification.labels
+                      ...classification.labels,
+                      ...projectContext ? [projectContext] : []
                     ]));
+                    const currentUser = await getCurrentGitHubUsername();
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
                     const newIssue = await createGitHubIssue(
                       githubInfo.owner,
                       githubInfo.repo,
                       issueTitle,
                       issueBody,
-                      issueLabels
+                      issueLabels,
+                      currentUser
                     );
                     if (newIssue) {
                       outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
