@@ -1244,7 +1244,184 @@ async function getRepoDiff(repoRoot) {
   return stdout;
 }
 function cleanCommitMessage(msg) {
-  return msg.replace(/^```[\s\S]*?\n/, "").replace(/```$/, "").trim();
+  return msg.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "").trim();
+}
+function getActiveModel(provider, config) {
+  const cfg = config || vscode3.workspace.getConfiguration("aiCommitGenerator");
+  const customModel = (cfg.get("customModel") || "").trim();
+  const configuredModel = cfg.get(`${provider}Model`);
+  if (configuredModel === "custom") {
+    if (customModel.length > 0) {
+      return customModel;
+    }
+    vscode3.window.showWarningMessage(
+      `AI Commit Generator: 'custom' selected for ${provider}, but 'customModel' is empty. Falling back to default.`
+    );
+  } else if (configuredModel) {
+    return configuredModel;
+  }
+  switch (provider) {
+    case "gemini":
+      return "gemini-3.1-flash-lite-preview";
+    case "openai":
+      return "gpt-4o-mini";
+    case "ollama":
+      return cfg.get("ollamaModel") || "gemma2:9b";
+    case "deepseek":
+      return "deepseek-chat";
+    case "openrouter":
+      return "qwen/qwen3-coder:free";
+    default:
+      return "gemini-3.1-flash-lite-preview";
+  }
+}
+async function showSelectModelQuickPick() {
+  const config = vscode3.workspace.getConfiguration("aiCommitGenerator");
+  const provider = config.get("provider") || "gemini";
+  const activeModel = getActiveModel(provider, config);
+  const providerTitle = provider.charAt(0).toUpperCase() + provider.slice(1);
+  const customModelsKeyMap = {
+    gemini: "customGeminiModels",
+    openai: "customOpenaiModels",
+    deepseek: "customDeepseekModels",
+    openrouter: "customOpenrouterModels"
+  };
+  const customModelsKey = customModelsKeyMap[provider] || "customGeminiModels";
+  const customModels = (config.get(customModelsKey) || []).map((m) => (m || "").trim()).filter((m) => m.length > 0);
+  const builtInMap = {
+    gemini: [
+      "gemini-2.0-flash",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
+      "gemini-3-flash-preview",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-3.1-flash-lite-preview"
+    ],
+    openai: ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
+    deepseek: ["deepseek-chat", "deepseek-coder"],
+    openrouter: [
+      "qwen/qwen3-coder:free",
+      "openai/gpt-oss-20b:free",
+      "nvidia/nemotron-nano-9b-v2:free",
+      "alibaba/tongyi-deepresearch-30b-a3b:free",
+      "amazon/nova-2-lite-v1:free",
+      "mistralai/devstral-2512:free",
+      "openai/gpt-oss-120b:free"
+    ],
+    ollama: ["gemma2:9b", "llama3", "mistral"]
+  };
+  const presets = builtInMap[provider] || [];
+  const items = [];
+  items.push({
+    label: `$(plus) Add New Custom Model...`,
+    description: `Add a new model identifier to ${providerTitle} list`,
+    action: "add"
+  });
+  if (customModels.length > 0) {
+    items.push({
+      label: "Custom Models",
+      kind: vscode3.QuickPickItemKind.Separator
+    });
+    for (const model of customModels) {
+      const isActive = model.toLowerCase() === activeModel.toLowerCase();
+      items.push({
+        label: isActive ? `$(check) ${model}` : `$(sparkle) ${model}`,
+        description: isActive ? "(Active Custom Model)" : "(Custom Model)",
+        action: "select",
+        modelName: model,
+        isCustom: true
+      });
+    }
+  }
+  if (presets.length > 0) {
+    items.push({
+      label: "Standard Presets",
+      kind: vscode3.QuickPickItemKind.Separator
+    });
+    for (const model of presets) {
+      const isActive = model.toLowerCase() === activeModel.toLowerCase();
+      items.push({
+        label: isActive ? `$(check) ${model}` : `$(symbol-event) ${model}`,
+        description: isActive ? "(Active Model)" : "",
+        action: "select",
+        modelName: model,
+        isCustom: false
+      });
+    }
+  }
+  if (customModels.length > 0) {
+    items.push({
+      label: "Manage",
+      kind: vscode3.QuickPickItemKind.Separator
+    });
+    items.push({
+      label: `$(trash) Remove a Custom Model...`,
+      description: `Delete a custom model from the ${providerTitle} list`,
+      action: "remove"
+    });
+  }
+  const selected = await vscode3.window.showQuickPick(items, {
+    placeHolder: `Select AI model for ${providerTitle} (Current: ${activeModel})`,
+    title: `AI Commit Generator: ${providerTitle} Models`
+  });
+  if (!selected) return;
+  if (selected.action === "add") {
+    const input = await vscode3.window.showInputBox({
+      title: `Add Custom ${providerTitle} Model`,
+      prompt: `Enter the model identifier (e.g. gemini-3.5-pro, gpt-4.5-preview)`,
+      placeHolder: "model-identifier",
+      validateInput: (val) => {
+        const trimmed = (val || "").trim();
+        if (!trimmed) return "Model identifier cannot be empty";
+        if (customModels.some((m) => m.toLowerCase() === trimmed.toLowerCase())) {
+          return "This model is already in your custom models list";
+        }
+        return null;
+      }
+    });
+    if (!input) return;
+    const newModel = input.trim();
+    const updatedCustom = [...customModels, newModel];
+    await config.update(customModelsKey, updatedCustom, vscode3.ConfigurationTarget.Global);
+    await config.update("customModel", newModel, vscode3.ConfigurationTarget.Global);
+    await config.update(`${provider}Model`, "custom", vscode3.ConfigurationTarget.Global);
+    vscode3.window.showInformationMessage(
+      `AI Commit Generator: Added and activated custom model '${newModel}' for ${providerTitle}.`
+    );
+  } else if (selected.action === "remove") {
+    const removePick = await vscode3.window.showQuickPick(
+      customModels.map((m) => ({ label: `$(trash) ${m}`, modelName: m })),
+      {
+        placeHolder: "Choose a custom model to remove",
+        title: `Remove Custom ${providerTitle} Model`
+      }
+    );
+    if (!removePick) return;
+    const toRemove = removePick.modelName;
+    const filtered = customModels.filter((m) => m.toLowerCase() !== toRemove.toLowerCase());
+    await config.update(customModelsKey, filtered, vscode3.ConfigurationTarget.Global);
+    const currentCustom = (config.get("customModel") || "").trim();
+    if (currentCustom.toLowerCase() === toRemove.toLowerCase()) {
+      await config.update("customModel", "", vscode3.ConfigurationTarget.Global);
+      const defaultPreset = presets[0] || "";
+      if (defaultPreset) {
+        await config.update(`${provider}Model`, defaultPreset, vscode3.ConfigurationTarget.Global);
+      }
+    }
+    vscode3.window.showInformationMessage(`AI Commit Generator: Removed custom model '${toRemove}'.`);
+  } else if (selected.action === "select" && selected.modelName) {
+    if (selected.isCustom) {
+      await config.update("customModel", selected.modelName, vscode3.ConfigurationTarget.Global);
+      await config.update(`${provider}Model`, "custom", vscode3.ConfigurationTarget.Global);
+    } else {
+      await config.update(`${provider}Model`, selected.modelName, vscode3.ConfigurationTarget.Global);
+    }
+    vscode3.window.showInformationMessage(
+      `AI Commit Generator: Switched active ${providerTitle} model to '${selected.modelName}'.`
+    );
+  }
 }
 async function generateCommitMessage(diff, issues, token) {
   const config = vscode3.workspace.getConfiguration("aiCommitGenerator");
@@ -1280,7 +1457,7 @@ Commit message:
 `;
   if (provider === "gemini") {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = config.get("geminiModel") || "gemini-3-flash-preview";
+    const modelName = getActiveModel("gemini", config);
     const model = genAI.getGenerativeModel({ model: modelName });
     if (token.isCancellationRequested) throw new vscode3.CancellationError();
     const result = await model.generateContent(prompt);
@@ -1290,7 +1467,7 @@ Commit message:
     if (token.isCancellationRequested) {
       throw new vscode3.CancellationError();
     }
-    const model = config.get("openaiModel") || "gpt-4o-mini";
+    const model = getActiveModel("openai", config);
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1329,7 +1506,7 @@ Commit message:
   }
   if (provider === "ollama") {
     if (token.isCancellationRequested) throw new vscode3.CancellationError();
-    const model = config.get("ollamaModel") || "gemma2:9b";
+    const model = getActiveModel("ollama", config);
     const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
     const response = await fetch(`${endpoint}/api/generate`, {
       method: "POST",
@@ -1353,7 +1530,7 @@ Commit message:
   }
   if (provider === "deepseek") {
     if (token.isCancellationRequested) throw new vscode3.CancellationError();
-    const model = config.get("deepseekModel") || "deepseek-chat";
+    const model = getActiveModel("deepseek", config);
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
@@ -1373,6 +1550,32 @@ Commit message:
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`DeepSeek error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    return cleanCommitMessage(data.choices?.[0]?.message?.content || "");
+  }
+  if (provider === "openrouter") {
+    if (token.isCancellationRequested) throw new vscode3.CancellationError();
+    const model = getActiveModel("openrouter", config);
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You write concise, semantic Git commit messages." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter error (${response.status}): ${text}`);
     }
     const data = await response.json();
     return cleanCommitMessage(data.choices?.[0]?.message?.content || "");
@@ -1409,6 +1612,35 @@ function activate(context) {
       async () => {
         await getGitHubAccessToken(true);
         vscode3.window.showInformationMessage("GitHub account connected \u2714");
+      }
+    )
+  );
+  const modelStatusBarItem = vscode3.window.createStatusBarItem(vscode3.StatusBarAlignment.Right, 100);
+  modelStatusBarItem.command = "ai-commit-generator.selectModel";
+  const updateStatusBar = () => {
+    const cfg = vscode3.workspace.getConfiguration("aiCommitGenerator");
+    const p = cfg.get("provider") || "gemini";
+    const m = getActiveModel(p, cfg);
+    modelStatusBarItem.text = `$(sparkle) ${p}:${m}`;
+    modelStatusBarItem.tooltip = `Active AI Model: ${m} (${p})
+Click to select or add custom model`;
+    modelStatusBarItem.show();
+  };
+  updateStatusBar();
+  context.subscriptions.push(modelStatusBarItem);
+  context.subscriptions.push(
+    vscode3.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("aiCommitGenerator")) {
+        updateStatusBar();
+      }
+    })
+  );
+  context.subscriptions.push(
+    vscode3.commands.registerCommand(
+      "ai-commit-generator.selectModel",
+      async () => {
+        await showSelectModelQuickPick();
+        updateStatusBar();
       }
     )
   );
@@ -1764,7 +1996,7 @@ ${diff}
   if (provider === "gemini") {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: config.get("geminiModel") || "gemini-3-flash-preview"
+      model: getActiveModel("gemini", config)
     });
     const result = await model.generateContent(prompt);
     text = result.response.text();
@@ -1776,7 +2008,7 @@ ${diff}
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: config.get("openaiModel") || "gpt-4o-mini",
+        model: getActiveModel("openai", config),
         temperature: 0.1,
         messages: [
           { role: "system", content: "You classify code changes." },
@@ -1787,7 +2019,7 @@ ${diff}
     const data = await response.json();
     text = data.choices?.[0]?.message?.content;
   } else if (provider === "ollama") {
-    const model = config.get("ollamaModel") || "gemma2:9b";
+    const model = getActiveModel("ollama", config);
     const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
     const response = await fetch(`${endpoint}/api/generate`, {
       method: "POST",
@@ -1803,8 +2035,27 @@ ${diff}
     const data = await response.json();
     text = data.response;
   } else if (provider === "deepseek") {
-    const model = config.get("deepseekModel") || "deepseek-chat";
+    const model = getActiveModel("deepseek", config);
     const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: "You classify code changes." },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    const data = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  } else if (provider === "openrouter") {
+    const model = getActiveModel("openrouter", config);
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,

@@ -51,578 +51,6 @@
       "is_god_node": false
     },
     {
-      "id": "src/extension.ts",
-      "name": "extension.ts",
-      "label": "extension.ts",
-      "type": "module",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "totalLines": 977,
-      "structuralFingerprint": "14F 4I 3E",
-      "complexity": "critical",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "module",
-        "get",
-        "git",
-        "api",
-        "ensure",
-        "repo",
-        "remote",
-        "url",
-        "parse",
-        "hub",
-        "fetch",
-        "issues",
-        "diff",
-        "clean",
-        "commit",
-        "message",
-        "activate",
-        "set",
-        "generating",
-        "state",
-        "check",
-        "auth",
-        "deactivate"
-      ],
-      "aiSummary": "🚨 [GOD NODE ARCHITECTURAL AUDIT]\n• Component: extension.ts (src/extension.ts)\n• Degree Centrality: 0 incoming (fan-in), 34 outgoing (fan-out) [Total: 34 connections]\n• Blast Radius Risk: CRITICAL. Any change here propagates to 0 consumers including: none.\n• Downstream Dependencies: Directly coupled with 34 services: getGitAPI, ensureGitRepo, getRemoteUrl, parseGitHubUrl, fetchGitHubIssues.\n• Architectural Recommendation: High coupling detected. Decouple by extracting interface contracts (Facade / Mediator pattern) and applying Event-Driven or Port-and-Adapters isolation.",
-      "in_degree": 0,
-      "out_degree": 34,
-      "is_god_node": true
-    },
-    {
-      "id": "src/extension.ts:getGitAPI",
-      "name": "getGitAPI",
-      "label": "getGitAPI",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [],
-      "returnType": "GitAPI",
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "get",
-        "git",
-        "api",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'getGitAPI'.",
-      "in_degree": 1,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:ensureGitRepo",
-      "name": "ensureGitRepo",
-      "label": "ensureGitRepo",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "cwd: string"
-      ],
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "ensure",
-        "git",
-        "repo",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'ensureGitRepo'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:getRemoteUrl",
-      "name": "getRemoteUrl",
-      "label": "getRemoteUrl",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "repoRoot: string"
-      ],
-      "returnType": "Promise<string | undefined>",
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "get",
-        "remote",
-        "url",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'getRemoteUrl'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:parseGitHubUrl",
-      "name": "parseGitHubUrl",
-      "label": "parseGitHubUrl",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "url: string"
-      ],
-      "returnType": "",
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "parse",
-        "git",
-        "hub",
-        "url",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'parseGitHubUrl'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:fetchGitHubIssues",
-      "name": "fetchGitHubIssues",
-      "label": "fetchGitHubIssues",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "owner: string",
-        "repo: string"
-      ],
-      "returnType": "Promise<GitHubIssue[]>",
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "fetch",
-        "git",
-        "hub",
-        "issues",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'fetchGitHubIssues'.",
-      "in_degree": 2,
-      "out_degree": 1,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:getRepoDiff",
-      "name": "getRepoDiff",
-      "label": "getRepoDiff",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "repoRoot: string"
-      ],
-      "returnType": "Promise<string>",
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "get",
-        "repo",
-        "diff",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'getRepoDiff'.",
-      "in_degree": 2,
-      "out_degree": 1,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:cleanCommitMessage",
-      "name": "cleanCommitMessage",
-      "label": "cleanCommitMessage",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "msg: string"
-      ],
-      "returnType": "string",
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "clean",
-        "commit",
-        "message",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'cleanCommitMessage'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:activate",
-      "name": "activate",
-      "label": "activate",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "context: vscode.ExtensionContext"
-      ],
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "activate",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'activate'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:setGeneratingState",
-      "name": "setGeneratingState",
-      "label": "setGeneratingState",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "isGenerating: boolean"
-      ],
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "set",
-        "generating",
-        "state",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'setGeneratingState'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:checkGitHubAuth",
-      "name": "checkGitHubAuth",
-      "label": "checkGitHubAuth",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "showLoginOption: boolean = true"
-      ],
-      "returnType": "Promise<boolean>",
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "check",
-        "git",
-        "hub",
-        "auth",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'checkGitHubAuth'.",
-      "in_degree": 2,
-      "out_degree": 2,
-      "is_god_node": false,
-      "complexity": "medium"
-    },
-    {
-      "id": "src/extension.ts:deactivate",
-      "name": "deactivate",
-      "label": "deactivate",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [],
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "deactivate",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'deactivate'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:extractJson",
-      "name": "extractJson",
-      "label": "extractJson",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [
-        "text: string"
-      ],
-      "returnType": "string",
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "extract",
-        "json",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'extractJson'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:resolveGitHubToken",
-      "name": "resolveGitHubToken",
-      "label": "resolveGitHubToken",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [],
-      "returnType": "Promise<string | undefined>",
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "resolve",
-        "git",
-        "hub",
-        "token",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'resolveGitHubToken'.",
-      "in_degree": 5,
-      "out_degree": 1,
-      "is_god_node": false,
-      "complexity": "medium"
-    },
-    {
-      "id": "src/extension.ts:getCurrentGitHubUsername",
-      "name": "getCurrentGitHubUsername",
-      "label": "getCurrentGitHubUsername",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "params": [],
-      "returnType": "Promise<string | undefined>",
-      "isAsync": true,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "get",
-        "current",
-        "git",
-        "hub",
-        "username",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'getCurrentGitHubUsername'.",
-      "in_degree": 2,
-      "out_degree": 1,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:GitAPI",
-      "name": "GitAPI",
-      "label": "GitAPI",
-      "type": "interface",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "git",
-        "api",
-        "interface"
-      ],
-      "aiSummary": "[typescript] interface 'GitAPI'.",
-      "in_degree": 1,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:GitAPI2",
-      "name": "GitAPI2",
-      "label": "GitAPI2",
-      "type": "interface",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "git",
-        "api2",
-        "interface"
-      ],
-      "aiSummary": "[typescript] interface 'GitAPI2'.",
-      "in_degree": 1,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:GitRepository",
-      "name": "GitRepository",
-      "label": "GitRepository",
-      "type": "interface",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "git",
-        "repository",
-        "interface"
-      ],
-      "aiSummary": "[typescript] interface 'GitRepository'.",
-      "in_degree": 1,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/extension.ts:GitHubIssue",
-      "name": "GitHubIssue",
-      "label": "GitHubIssue",
-      "type": "interface",
-      "kind": "codebase",
-      "file": "src/extension.ts",
-      "source_file": "src/extension.ts",
-      "containerId": "src",
-      "containerDepth": 1,
-      "language": "typescript",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "extension",
-        "git",
-        "hub",
-        "issue",
-        "interface"
-      ],
-      "aiSummary": "[typescript] interface 'GitHubIssue'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
       "id": "table:commit",
       "name": "commit",
       "label": "Table: commit",
@@ -633,7 +61,7 @@
         "domainName": "commit",
         "description": "Database entity table: commit"
       },
-      "in_degree": 1,
+      "in_degree": 2,
       "out_degree": 0,
       "is_god_node": false,
       "complexity": "low"
@@ -1245,26 +673,6 @@
       "complexity": "low"
     },
     {
-      "id": "package.json",
-      "name": "package.json",
-      "label": "package.json (config)",
-      "type": "config",
-      "kind": "codebase",
-      "file": "package.json",
-      "source_file": "package.json",
-      "containerId": ".",
-      "containerDepth": 0,
-      "language": "json",
-      "category": "config",
-      "totalLines": 264,
-      "isTest": false,
-      "confidence": "high",
-      "in_degree": 0,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
       "id": "resources/aj-logo.png",
       "name": "aj-logo.png",
       "label": "aj-logo.png (asset)",
@@ -1363,9 +771,2860 @@
       "out_degree": 0,
       "is_god_node": false,
       "complexity": "low"
+    },
+    {
+      "id": "package.json",
+      "name": "package.json",
+      "label": "package.json",
+      "type": "module",
+      "kind": "codebase",
+      "file": "package.json",
+      "source_file": "package.json",
+      "containerId": "root",
+      "containerDepth": 0,
+      "language": "unknown",
+      "totalLines": 316,
+      "structuralFingerprint": "316L",
+      "complexity": "medium",
+      "confidence": "high",
+      "searchKeywords": [
+        "package",
+        "json",
+        "module"
+      ],
+      "aiSummary": "[unknown] module 'package.json' (316 lines) [316L].",
+      "in_degree": 0,
+      "out_degree": 1,
+      "is_god_node": false
+    },
+    {
+      "id": "table:changes",
+      "name": "changes",
+      "label": "Table: changes",
+      "type": "table",
+      "kind": "domain",
+      "confidence": "high",
+      "domainMeta": {
+        "domainName": "changes",
+        "description": "Database entity table: changes"
+      },
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts",
+      "name": "extension.ts",
+      "label": "extension.ts",
+      "type": "module",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "totalLines": 1264,
+      "structuralFingerprint": "17F 5I 3E",
+      "complexity": "critical",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "module",
+        "get",
+        "git",
+        "api",
+        "ensure",
+        "repo",
+        "remote",
+        "url",
+        "parse",
+        "hub",
+        "fetch",
+        "issues",
+        "diff",
+        "clean",
+        "commit",
+        "message",
+        "active",
+        "model",
+        "show",
+        "select",
+        "quick",
+        "pick",
+        "activate"
+      ],
+      "aiSummary": "[typescript] module 'extension.ts' (1264 lines) [17F 5I 3E].",
+      "in_degree": 0,
+      "out_degree": 41,
+      "is_god_node": true
+    },
+    {
+      "id": "src/extension.ts:getGitAPI",
+      "name": "getGitAPI",
+      "label": "getGitAPI",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [],
+      "returnType": "GitAPI",
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "get",
+        "git",
+        "api",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'getGitAPI'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:ensureGitRepo",
+      "name": "ensureGitRepo",
+      "label": "ensureGitRepo",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "cwd: string"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "ensure",
+        "git",
+        "repo",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'ensureGitRepo'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:getRemoteUrl",
+      "name": "getRemoteUrl",
+      "label": "getRemoteUrl",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "repoRoot: string"
+      ],
+      "returnType": "Promise<string | undefined>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "get",
+        "remote",
+        "url",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'getRemoteUrl'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:parseGitHubUrl",
+      "name": "parseGitHubUrl",
+      "label": "parseGitHubUrl",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "url: string"
+      ],
+      "returnType": "",
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "parse",
+        "git",
+        "hub",
+        "url",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'parseGitHubUrl'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:fetchGitHubIssues",
+      "name": "fetchGitHubIssues",
+      "label": "fetchGitHubIssues",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "owner: string",
+        "repo: string"
+      ],
+      "returnType": "Promise<GitHubIssue[]>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "fetch",
+        "git",
+        "hub",
+        "issues",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'fetchGitHubIssues'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:getRepoDiff",
+      "name": "getRepoDiff",
+      "label": "getRepoDiff",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "repoRoot: string"
+      ],
+      "returnType": "Promise<string>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "get",
+        "repo",
+        "diff",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'getRepoDiff'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:cleanCommitMessage",
+      "name": "cleanCommitMessage",
+      "label": "cleanCommitMessage",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "msg: string"
+      ],
+      "returnType": "string",
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "clean",
+        "commit",
+        "message",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'cleanCommitMessage'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:getActiveModel",
+      "name": "getActiveModel",
+      "label": "getActiveModel",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "provider: string",
+        "config?: vscode.WorkspaceConfiguration"
+      ],
+      "returnType": "string",
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "get",
+        "active",
+        "model",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'getActiveModel'.",
+      "in_degree": 4,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "src/extension.ts:showSelectModelQuickPick",
+      "name": "showSelectModelQuickPick",
+      "label": "showSelectModelQuickPick",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [],
+      "returnType": "Promise<void>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "show",
+        "select",
+        "model",
+        "quick",
+        "pick",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'showSelectModelQuickPick'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "src/extension.ts:activate",
+      "name": "activate",
+      "label": "activate",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "context: vscode.ExtensionContext"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "activate",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'activate'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:setGeneratingState",
+      "name": "setGeneratingState",
+      "label": "setGeneratingState",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "isGenerating: boolean"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "set",
+        "generating",
+        "state",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'setGeneratingState'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:checkGitHubAuth",
+      "name": "checkGitHubAuth",
+      "label": "checkGitHubAuth",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "showLoginOption: boolean = true"
+      ],
+      "returnType": "Promise<boolean>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "check",
+        "git",
+        "hub",
+        "auth",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'checkGitHubAuth'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "src/extension.ts:updateStatusBar",
+      "name": "updateStatusBar",
+      "label": "updateStatusBar",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "update",
+        "status",
+        "bar",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'updateStatusBar'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:deactivate",
+      "name": "deactivate",
+      "label": "deactivate",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "deactivate",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'deactivate'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:extractJson",
+      "name": "extractJson",
+      "label": "extractJson",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [
+        "text: string"
+      ],
+      "returnType": "string",
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "extract",
+        "json",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'extractJson'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:resolveGitHubToken",
+      "name": "resolveGitHubToken",
+      "label": "resolveGitHubToken",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [],
+      "returnType": "Promise<string | undefined>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "resolve",
+        "git",
+        "hub",
+        "token",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'resolveGitHubToken'.",
+      "in_degree": 5,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "src/extension.ts:getCurrentGitHubUsername",
+      "name": "getCurrentGitHubUsername",
+      "label": "getCurrentGitHubUsername",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "params": [],
+      "returnType": "Promise<string | undefined>",
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "get",
+        "current",
+        "git",
+        "hub",
+        "username",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'getCurrentGitHubUsername'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:GitAPI",
+      "name": "GitAPI",
+      "label": "GitAPI",
+      "type": "interface",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "git",
+        "api",
+        "interface"
+      ],
+      "aiSummary": "[typescript] interface 'GitAPI'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:GitAPI2",
+      "name": "GitAPI2",
+      "label": "GitAPI2",
+      "type": "interface",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "git",
+        "api2",
+        "interface"
+      ],
+      "aiSummary": "[typescript] interface 'GitAPI2'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:GitRepository",
+      "name": "GitRepository",
+      "label": "GitRepository",
+      "type": "interface",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "git",
+        "repository",
+        "interface"
+      ],
+      "aiSummary": "[typescript] interface 'GitRepository'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:GitHubIssue",
+      "name": "GitHubIssue",
+      "label": "GitHubIssue",
+      "type": "interface",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "git",
+        "hub",
+        "issue",
+        "interface"
+      ],
+      "aiSummary": "[typescript] interface 'GitHubIssue'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/extension.ts:ModelQuickPickItem",
+      "name": "ModelQuickPickItem",
+      "label": "ModelQuickPickItem",
+      "type": "interface",
+      "kind": "codebase",
+      "file": "src/extension.ts",
+      "source_file": "src/extension.ts",
+      "containerId": "src",
+      "containerDepth": 1,
+      "language": "typescript",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "extension",
+        "model",
+        "quick",
+        "pick",
+        "item",
+        "interface"
+      ],
+      "aiSummary": "[typescript] interface 'ModelQuickPickItem'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "table:the",
+      "name": "the",
+      "label": "Table: the",
+      "type": "table",
+      "kind": "domain",
+      "confidence": "high",
+      "domainMeta": {
+        "domainName": "the",
+        "description": "Database entity table: the"
+      },
+      "in_degree": 4,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js",
+      "name": "extension.js",
+      "label": "extension.js",
+      "type": "module",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "totalLines": 2154,
+      "structuralFingerprint": "65F",
+      "complexity": "critical",
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "module",
+        "export",
+        "copy",
+        "props",
+        "esm",
+        "common",
+        "get",
+        "client",
+        "headers",
+        "construct",
+        "model",
+        "request",
+        "make",
+        "handle",
+        "response",
+        "error",
+        "not",
+        "build",
+        "fetch",
+        "options",
+        "add",
+        "helpers",
+        "text"
+      ],
+      "aiSummary": "[javascript] module 'extension.js' (2154 lines) [65F].",
+      "in_degree": 0,
+      "out_degree": 97,
+      "is_god_node": true
+    },
+    {
+      "id": "dist/extension.js:__export",
+      "name": "__export",
+      "label": "__export",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "target",
+        "all"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "export",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function '__export'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:__copyProps",
+      "name": "__copyProps",
+      "label": "__copyProps",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "to",
+        "from",
+        "except",
+        "desc"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "copy",
+        "props",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function '__copyProps'.",
+      "in_degree": 3,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:__toESM",
+      "name": "__toESM",
+      "label": "__toESM",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "mod",
+        "isNodeMode",
+        "target"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "esm",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function '__toESM'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:__toCommonJS",
+      "name": "__toCommonJS",
+      "label": "__toCommonJS",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "mod"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "common",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function '__toCommonJS'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getClientHeaders",
+      "name": "getClientHeaders",
+      "label": "getClientHeaders",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "requestOptions"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "client",
+        "headers",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getClientHeaders'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getHeaders",
+      "name": "getHeaders",
+      "label": "getHeaders",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "url"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "headers",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getHeaders'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:constructModelRequest",
+      "name": "constructModelRequest",
+      "label": "constructModelRequest",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "model",
+        "task",
+        "apiKey",
+        "stream",
+        "body",
+        "requestOptions"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "construct",
+        "model",
+        "request",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'constructModelRequest'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:makeModelRequest",
+      "name": "makeModelRequest",
+      "label": "makeModelRequest",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "model",
+        "task",
+        "apiKey",
+        "stream",
+        "body",
+        "requestOptions = {}",
+        "fetchFn = fetch"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "make",
+        "model",
+        "request",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'makeModelRequest'.",
+      "in_degree": 6,
+      "out_degree": 2,
+      "is_god_node": true,
+      "complexity": "critical"
+    },
+    {
+      "id": "dist/extension.js:makeRequest",
+      "name": "makeRequest",
+      "label": "makeRequest",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "url",
+        "fetchOptions",
+        "fetchFn = fetch"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "make",
+        "request",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'makeRequest'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:handleResponseError",
+      "name": "handleResponseError",
+      "label": "handleResponseError",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "e",
+        "url"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "handle",
+        "response",
+        "error",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'handleResponseError'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:handleResponseNotOk",
+      "name": "handleResponseNotOk",
+      "label": "handleResponseNotOk",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response",
+        "url"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "handle",
+        "response",
+        "not",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'handleResponseNotOk'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:buildFetchOptions",
+      "name": "buildFetchOptions",
+      "label": "buildFetchOptions",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "requestOptions"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "build",
+        "fetch",
+        "options",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'buildFetchOptions'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:addHelpers",
+      "name": "addHelpers",
+      "label": "addHelpers",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "add",
+        "helpers",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'addHelpers'.",
+      "in_degree": 4,
+      "out_degree": 5,
+      "is_god_node": true,
+      "complexity": "critical"
+    },
+    {
+      "id": "dist/extension.js:getText",
+      "name": "getText",
+      "label": "getText",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "text",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getText'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getFunctionCalls",
+      "name": "getFunctionCalls",
+      "label": "getFunctionCalls",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "function",
+        "calls"
+      ],
+      "aiSummary": "[javascript] Function 'getFunctionCalls'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:hadBadFinishReason",
+      "name": "hadBadFinishReason",
+      "label": "hadBadFinishReason",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "candidate"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "had",
+        "bad",
+        "finish",
+        "reason",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'hadBadFinishReason'.",
+      "in_degree": 3,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:formatBlockErrorMessage",
+      "name": "formatBlockErrorMessage",
+      "label": "formatBlockErrorMessage",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "format",
+        "block",
+        "error",
+        "message",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'formatBlockErrorMessage'.",
+      "in_degree": 3,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:__await",
+      "name": "__await",
+      "label": "__await",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "v"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "await",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function '__await'.",
+      "in_degree": 3,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:__asyncGenerator",
+      "name": "__asyncGenerator",
+      "label": "__asyncGenerator",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "thisArg",
+        "_arguments",
+        "generator"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "async",
+        "generator",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function '__asyncGenerator'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:verb",
+      "name": "verb",
+      "label": "verb",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "n"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "verb",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'verb'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:resume",
+      "name": "resume",
+      "label": "resume",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "n",
+        "v"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "resume",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'resume'.",
+      "in_degree": 5,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:step",
+      "name": "step",
+      "label": "step",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "r"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "step",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'step'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:fulfill",
+      "name": "fulfill",
+      "label": "fulfill",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "value"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "fulfill",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'fulfill'.",
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:reject",
+      "name": "reject",
+      "label": "reject",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "value"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "reject",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'reject'.",
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:settle",
+      "name": "settle",
+      "label": "settle",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "f",
+        "v"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "settle",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'settle'.",
+      "in_degree": 3,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:processStream",
+      "name": "processStream",
+      "label": "processStream",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "process",
+        "stream",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'processStream'.",
+      "in_degree": 2,
+      "out_degree": 3,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:getResponsePromise",
+      "name": "getResponsePromise",
+      "label": "getResponsePromise",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "stream"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "response",
+        "promise",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getResponsePromise'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:generateResponseSequence",
+      "name": "generateResponseSequence",
+      "label": "generateResponseSequence",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "stream"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "generate",
+        "response",
+        "sequence",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'generateResponseSequence'.",
+      "in_degree": 2,
+      "out_degree": 3,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:getResponseStream",
+      "name": "getResponseStream",
+      "label": "getResponseStream",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "inputStream"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "response",
+        "stream",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getResponseStream'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:pump",
+      "name": "pump",
+      "label": "pump",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "pump",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'pump'.",
+      "in_degree": 3,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:aggregateResponses",
+      "name": "aggregateResponses",
+      "label": "aggregateResponses",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "responses"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "aggregate",
+        "responses",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'aggregateResponses'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:generateContentStream",
+      "name": "generateContentStream",
+      "label": "generateContentStream",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "apiKey",
+        "model",
+        "params",
+        "requestOptions"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "generate",
+        "content",
+        "stream",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'generateContentStream'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:generateContent",
+      "name": "generateContent",
+      "label": "generateContent",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "apiKey",
+        "model",
+        "params",
+        "requestOptions"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "generate",
+        "content",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'generateContent'.",
+      "in_degree": 5,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:formatSystemInstruction",
+      "name": "formatSystemInstruction",
+      "label": "formatSystemInstruction",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "input"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "format",
+        "system",
+        "instruction",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'formatSystemInstruction'.",
+      "in_degree": 3,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:formatNewContent",
+      "name": "formatNewContent",
+      "label": "formatNewContent",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "request"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "format",
+        "new",
+        "content",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'formatNewContent'.",
+      "in_degree": 5,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:assignRoleToPartsAndValidateSendMessageRequest",
+      "name": "assignRoleToPartsAndValidateSendMessageRequest",
+      "label": "assignRoleToPartsAndValidateSendMessageRequest",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "parts"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "assign",
+        "role",
+        "parts",
+        "and",
+        "validate",
+        "send",
+        "message",
+        "request",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'assignRoleToPartsAndValidateSendMessageRequest'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:formatCountTokensInput",
+      "name": "formatCountTokensInput",
+      "label": "formatCountTokensInput",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "params",
+        "modelParams"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "format",
+        "count",
+        "tokens",
+        "input",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'formatCountTokensInput'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:formatGenerateContentInput",
+      "name": "formatGenerateContentInput",
+      "label": "formatGenerateContentInput",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "params"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "format",
+        "generate",
+        "content",
+        "input",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'formatGenerateContentInput'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:formatEmbedContentInput",
+      "name": "formatEmbedContentInput",
+      "label": "formatEmbedContentInput",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "params"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "format",
+        "embed",
+        "content",
+        "input",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'formatEmbedContentInput'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:validateChatHistory",
+      "name": "validateChatHistory",
+      "label": "validateChatHistory",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "history"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "validate",
+        "chat",
+        "history",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'validateChatHistory'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:isValidResponse",
+      "name": "isValidResponse",
+      "label": "isValidResponse",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "response"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "valid",
+        "response",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'isValidResponse'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:countTokens",
+      "name": "countTokens",
+      "label": "countTokens",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "apiKey",
+        "model",
+        "params",
+        "singleRequestOptions"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "count",
+        "tokens",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'countTokens'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:embedContent",
+      "name": "embedContent",
+      "label": "embedContent",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "apiKey",
+        "model",
+        "params",
+        "requestOptions"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "embed",
+        "content",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'embedContent'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:batchEmbedContents",
+      "name": "batchEmbedContents",
+      "label": "batchEmbedContents",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "apiKey",
+        "model",
+        "params",
+        "requestOptions"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "batch",
+        "embed",
+        "contents",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'batchEmbedContents'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getGitHubAccessToken",
+      "name": "getGitHubAccessToken",
+      "label": "getGitHubAccessToken",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "createIfNone = true"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "git",
+        "hub",
+        "access",
+        "token",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getGitHubAccessToken'.",
+      "in_degree": 4,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:findRelevantIssue",
+      "name": "findRelevantIssue",
+      "label": "findRelevantIssue",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "diff",
+        "issues",
+        "token"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "find",
+        "relevant",
+        "issue",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'findRelevantIssue'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:ensureGitRepo",
+      "name": "ensureGitRepo",
+      "label": "ensureGitRepo",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "cwd"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "ensure",
+        "git",
+        "repo",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'ensureGitRepo'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getRemoteUrl",
+      "name": "getRemoteUrl",
+      "label": "getRemoteUrl",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "repoRoot"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "remote",
+        "url",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getRemoteUrl'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:parseGitHubUrl",
+      "name": "parseGitHubUrl",
+      "label": "parseGitHubUrl",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "url"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "parse",
+        "git",
+        "hub",
+        "url",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'parseGitHubUrl'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:fetchGitHubIssues",
+      "name": "fetchGitHubIssues",
+      "label": "fetchGitHubIssues",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "owner",
+        "repo"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "fetch",
+        "git",
+        "hub",
+        "issues",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'fetchGitHubIssues'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getRepoDiff",
+      "name": "getRepoDiff",
+      "label": "getRepoDiff",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "repoRoot"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "repo",
+        "diff",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getRepoDiff'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:cleanCommitMessage",
+      "name": "cleanCommitMessage",
+      "label": "cleanCommitMessage",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "msg"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "clean",
+        "commit",
+        "message",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'cleanCommitMessage'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:getActiveModel",
+      "name": "getActiveModel",
+      "label": "getActiveModel",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "provider",
+        "config"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "active",
+        "model",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getActiveModel'.",
+      "in_degree": 5,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:showSelectModelQuickPick",
+      "name": "showSelectModelQuickPick",
+      "label": "showSelectModelQuickPick",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "show",
+        "select",
+        "model",
+        "quick",
+        "pick",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'showSelectModelQuickPick'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:generateCommitMessage",
+      "name": "generateCommitMessage",
+      "label": "generateCommitMessage",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "diff",
+        "issues",
+        "token"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "generate",
+        "commit",
+        "message",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'generateCommitMessage'.",
+      "in_degree": 2,
+      "out_degree": 3,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:activate",
+      "name": "activate",
+      "label": "activate",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "context"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "activate",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'activate'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:setGeneratingState",
+      "name": "setGeneratingState",
+      "label": "setGeneratingState",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "isGenerating"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "set",
+        "generating",
+        "state",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'setGeneratingState'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:checkGitHubAuth",
+      "name": "checkGitHubAuth",
+      "label": "checkGitHubAuth",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "showLoginOption = true"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "check",
+        "git",
+        "hub",
+        "auth",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'checkGitHubAuth'.",
+      "in_degree": 2,
+      "out_degree": 2,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:updateStatusBar",
+      "name": "updateStatusBar",
+      "label": "updateStatusBar",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "update",
+        "status",
+        "bar",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'updateStatusBar'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:deactivate",
+      "name": "deactivate",
+      "label": "deactivate",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "deactivate",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'deactivate'.",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:createGitHubIssue",
+      "name": "createGitHubIssue",
+      "label": "createGitHubIssue",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "owner",
+        "repo",
+        "issueTitle",
+        "issueBody",
+        "issueLabels",
+        "assignee"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "create",
+        "git",
+        "hub",
+        "issue",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'createGitHubIssue'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:classifyIssueFromDiff",
+      "name": "classifyIssueFromDiff",
+      "label": "classifyIssueFromDiff",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "diff",
+        "token"
+      ],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "classify",
+        "issue",
+        "from",
+        "diff",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'classifyIssueFromDiff'.",
+      "in_degree": 2,
+      "out_degree": 3,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:extractJson",
+      "name": "extractJson",
+      "label": "extractJson",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [
+        "text"
+      ],
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "extract",
+        "json",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'extractJson'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "dist/extension.js:resolveGitHubToken",
+      "name": "resolveGitHubToken",
+      "label": "resolveGitHubToken",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "resolve",
+        "git",
+        "hub",
+        "token",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'resolveGitHubToken'.",
+      "in_degree": 6,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "dist/extension.js:getCurrentGitHubUsername",
+      "name": "getCurrentGitHubUsername",
+      "label": "getCurrentGitHubUsername",
+      "type": "function",
+      "kind": "codebase",
+      "file": "dist/extension.js",
+      "source_file": "dist/extension.js",
+      "containerId": "dist",
+      "containerDepth": 1,
+      "language": "javascript",
+      "params": [],
+      "isAsync": true,
+      "confidence": "high",
+      "searchKeywords": [
+        "dist",
+        "extension",
+        "get",
+        "current",
+        "git",
+        "hub",
+        "username",
+        "function"
+      ],
+      "aiSummary": "[javascript] Function 'getCurrentGitHubUsername'.",
+      "in_degree": 2,
+      "out_degree": 1,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "event:abort",
+      "name": "abort",
+      "label": "Event: abort",
+      "type": "event",
+      "kind": "codebase",
+      "confidence": "high",
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
     }
   ],
   "edges": [
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:GitHubIssueTracker",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:Issue",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:IssueTracker",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:GitHubIssue",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/issue-tracker.ts:GitHubIssueTracker",
+      "target": "src/issue-tracker.ts:IssueTracker",
+      "relation": "implements",
+      "kind": "codebase",
+      "type": "implementation"
+    },
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:Issue",
+      "relation": "exports",
+      "kind": "codebase",
+      "type": "export"
+    },
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:IssueTracker",
+      "relation": "exports",
+      "kind": "codebase",
+      "type": "export"
+    },
+    {
+      "source": "src/issue-tracker.ts",
+      "target": "src/issue-tracker.ts:GitHubIssueTracker",
+      "relation": "exports",
+      "kind": "codebase",
+      "type": "export"
+    },
+    {
+      "source": "src/llm_issue_matcher.ts",
+      "target": "table:extension",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "package.json",
+      "target": "table:changes",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
     {
       "source": "src/extension.ts",
       "target": "src/extension.ts:getGitAPI",
@@ -1417,6 +3676,20 @@
     },
     {
       "source": "src/extension.ts",
+      "target": "src/extension.ts:getActiveModel",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/extension.ts",
+      "target": "src/extension.ts:showSelectModelQuickPick",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/extension.ts",
       "target": "src/extension.ts:activate",
       "relation": "contains",
       "kind": "codebase",
@@ -1432,6 +3705,13 @@
     {
       "source": "src/extension.ts",
       "target": "src/extension.ts:checkGitHubAuth",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/extension.ts",
+      "target": "src/extension.ts:updateStatusBar",
       "relation": "contains",
       "kind": "codebase",
       "type": "structural"
@@ -1494,6 +3774,13 @@
     },
     {
       "source": "src/extension.ts",
+      "target": "src/extension.ts:ModelQuickPickItem",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/extension.ts",
       "target": "src/extension.ts:GitHubIssue",
       "relation": "exports",
       "kind": "codebase",
@@ -1530,6 +3817,22 @@
       "confidence": "high"
     },
     {
+      "source": "src/extension.ts:showSelectModelQuickPick",
+      "target": "src/extension.ts:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "src/extension.ts",
+      "target": "src/extension.ts:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
       "source": "src/extension.ts",
       "target": "src/extension.ts:cleanCommitMessage",
       "relation": "calls",
@@ -1556,6 +3859,30 @@
     {
       "source": "src/extension.ts",
       "target": "src/githubAuth.ts:getGitHubAccessToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "src/extension.ts:updateStatusBar",
+      "target": "src/extension.ts:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "src/extension.ts",
+      "target": "src/extension.ts:updateStatusBar",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "src/extension.ts",
+      "target": "src/extension.ts:showSelectModelQuickPick",
       "relation": "calls",
       "kind": "codebase",
       "type": "behavioral",
@@ -1658,6 +3985,14 @@
       "confidence": "high"
     },
     {
+      "source": "src/extension.ts:showSelectModelQuickPick",
+      "target": "table:the",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
       "source": "src/extension.ts",
       "target": "table:commit",
       "relation": "reads_from",
@@ -1666,64 +4001,1231 @@
       "confidence": "high"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:GitHubIssueTracker",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__export",
       "relation": "contains",
       "kind": "codebase",
       "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:Issue",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__copyProps",
       "relation": "contains",
       "kind": "codebase",
       "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:IssueTracker",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__toESM",
       "relation": "contains",
       "kind": "codebase",
       "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:GitHubIssue",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__toCommonJS",
       "relation": "contains",
       "kind": "codebase",
       "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts:GitHubIssueTracker",
-      "target": "src/issue-tracker.ts:IssueTracker",
-      "relation": "implements",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getClientHeaders",
+      "relation": "contains",
       "kind": "codebase",
-      "type": "implementation"
+      "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:Issue",
-      "relation": "exports",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getHeaders",
+      "relation": "contains",
       "kind": "codebase",
-      "type": "export"
+      "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:IssueTracker",
-      "relation": "exports",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:constructModelRequest",
+      "relation": "contains",
       "kind": "codebase",
-      "type": "export"
+      "type": "structural"
     },
     {
-      "source": "src/issue-tracker.ts",
-      "target": "src/issue-tracker.ts:GitHubIssueTracker",
-      "relation": "exports",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:makeModelRequest",
+      "relation": "contains",
       "kind": "codebase",
-      "type": "export"
+      "type": "structural"
     },
     {
-      "source": "src/llm_issue_matcher.ts",
-      "target": "table:extension",
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:makeRequest",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:handleResponseError",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:handleResponseNotOk",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:buildFetchOptions",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:addHelpers",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getText",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getFunctionCalls",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:hadBadFinishReason",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatBlockErrorMessage",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__await",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__asyncGenerator",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:verb",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:resume",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:step",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:fulfill",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:reject",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:settle",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:processStream",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getResponsePromise",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateResponseSequence",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getResponseStream",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:pump",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:aggregateResponses",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateContentStream",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateContent",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatSystemInstruction",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatNewContent",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:assignRoleToPartsAndValidateSendMessageRequest",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatCountTokensInput",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatGenerateContentInput",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatEmbedContentInput",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:validateChatHistory",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:isValidResponse",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:countTokens",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:embedContent",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:batchEmbedContents",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getGitHubAccessToken",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:findRelevantIssue",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:ensureGitRepo",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getRemoteUrl",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:parseGitHubUrl",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:fetchGitHubIssues",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getRepoDiff",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:cleanCommitMessage",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getActiveModel",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:showSelectModelQuickPick",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateCommitMessage",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:activate",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:setGeneratingState",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:checkGitHubAuth",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:updateStatusBar",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:deactivate",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:createGitHubIssue",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:classifyIssueFromDiff",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:extractJson",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:resolveGitHubToken",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getCurrentGitHubUsername",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "dist/extension.js:__toESM",
+      "target": "dist/extension.js:__copyProps",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:__toCommonJS",
+      "target": "dist/extension.js:__copyProps",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__export",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__toCommonJS",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:__toESM",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:getHeaders",
+      "target": "dist/extension.js:getClientHeaders",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:constructModelRequest",
+      "target": "dist/extension.js:buildFetchOptions",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:constructModelRequest",
+      "target": "dist/extension.js:getHeaders",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:makeModelRequest",
+      "target": "dist/extension.js:constructModelRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:makeModelRequest",
+      "target": "dist/extension.js:makeRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:makeRequest",
+      "target": "dist/extension.js:handleResponseError",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:makeRequest",
+      "target": "dist/extension.js:handleResponseNotOk",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:buildFetchOptions",
+      "target": "event:abort",
+      "relation": "subscribes_to",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:addHelpers",
+      "target": "dist/extension.js:hadBadFinishReason",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:addHelpers",
+      "target": "dist/extension.js:formatBlockErrorMessage",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:addHelpers",
+      "target": "dist/extension.js:getText",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:addHelpers",
+      "target": "dist/extension.js:getFunctionCalls",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:formatBlockErrorMessage",
+      "target": "dist/extension.js:hadBadFinishReason",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:__await",
+      "target": "dist/extension.js:__await",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:__asyncGenerator",
+      "target": "dist/extension.js:verb",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:verb",
+      "target": "dist/extension.js:resume",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:resume",
+      "target": "dist/extension.js:step",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:resume",
+      "target": "dist/extension.js:settle",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:step",
+      "target": "dist/extension.js:settle",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:fulfill",
+      "target": "dist/extension.js:resume",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:reject",
+      "target": "dist/extension.js:resume",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:settle",
+      "target": "dist/extension.js:resume",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:processStream",
+      "target": "dist/extension.js:getResponseStream",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:processStream",
+      "target": "dist/extension.js:generateResponseSequence",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:processStream",
+      "target": "dist/extension.js:getResponsePromise",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:getResponsePromise",
+      "target": "dist/extension.js:addHelpers",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:getResponsePromise",
+      "target": "dist/extension.js:aggregateResponses",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateResponseSequence",
+      "target": "dist/extension.js:__asyncGenerator",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateResponseSequence",
+      "target": "dist/extension.js:__await",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateResponseSequence",
+      "target": "dist/extension.js:addHelpers",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:getResponseStream",
+      "target": "dist/extension.js:pump",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:pump",
+      "target": "dist/extension.js:pump",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateContentStream",
+      "target": "dist/extension.js:makeModelRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateContentStream",
+      "target": "dist/extension.js:processStream",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateContent",
+      "target": "dist/extension.js:makeModelRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateContent",
+      "target": "dist/extension.js:addHelpers",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:formatNewContent",
+      "target": "dist/extension.js:assignRoleToPartsAndValidateSendMessageRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:formatCountTokensInput",
+      "target": "dist/extension.js:formatNewContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:formatGenerateContentInput",
+      "target": "dist/extension.js:formatNewContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:formatGenerateContentInput",
+      "target": "dist/extension.js:formatSystemInstruction",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:formatEmbedContentInput",
+      "target": "dist/extension.js:formatNewContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:validateChatHistory",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatNewContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:isValidResponse",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatBlockErrorMessage",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateContentStream",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:countTokens",
+      "target": "dist/extension.js:makeModelRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:embedContent",
+      "target": "dist/extension.js:makeModelRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:batchEmbedContents",
+      "target": "dist/extension.js:makeModelRequest",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatSystemInstruction",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatGenerateContentInput",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:countTokens",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatCountTokensInput",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:embedContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:formatEmbedContentInput",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:batchEmbedContents",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:findRelevantIssue",
+      "target": "dist/extension.js:generateContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:fetchGitHubIssues",
+      "target": "dist/extension.js:resolveGitHubToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:getRepoDiff",
+      "target": "dist/extension.js:ensureGitRepo",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:showSelectModelQuickPick",
+      "target": "dist/extension.js:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateCommitMessage",
+      "target": "dist/extension.js:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateCommitMessage",
+      "target": "dist/extension.js:generateContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:generateCommitMessage",
+      "target": "dist/extension.js:cleanCommitMessage",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:checkGitHubAuth",
+      "target": "dist/extension.js:resolveGitHubToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:checkGitHubAuth",
+      "target": "dist/extension.js:getGitHubAccessToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getGitHubAccessToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:updateStatusBar",
+      "target": "dist/extension.js:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:updateStatusBar",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:showSelectModelQuickPick",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:checkGitHubAuth",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getRepoDiff",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getRemoteUrl",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:parseGitHubUrl",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:resolveGitHubToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:generateCommitMessage",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:classifyIssueFromDiff",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:getCurrentGitHubUsername",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:createGitHubIssue",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:setGeneratingState",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:fetchGitHubIssues",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "dist/extension.js:findRelevantIssue",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:createGitHubIssue",
+      "target": "dist/extension.js:resolveGitHubToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:classifyIssueFromDiff",
+      "target": "dist/extension.js:getActiveModel",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:classifyIssueFromDiff",
+      "target": "dist/extension.js:generateContent",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:classifyIssueFromDiff",
+      "target": "dist/extension.js:extractJson",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:resolveGitHubToken",
+      "target": "dist/extension.js:getGitHubAccessToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:getCurrentGitHubUsername",
+      "target": "dist/extension.js:resolveGitHubToken",
+      "relation": "calls",
+      "kind": "codebase",
+      "type": "behavioral",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:addHelpers",
+      "target": "table:the",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:pump",
+      "target": "table:the",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js:showSelectModelQuickPick",
+      "target": "table:the",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "dist/extension.js",
+      "target": "table:commit",
       "relation": "reads_from",
       "kind": "codebase",
       "type": "dataflow",
@@ -1732,17 +5234,17 @@
   ],
   "communities": {},
   "stats": {
-    "totalNodes": 56,
-    "totalEdges": 49,
-    "godNodesCount": 1,
+    "totalNodes": 129,
+    "totalEdges": 222,
+    "godNodesCount": 4,
     "communitiesCount": 0,
     "byKind": {
       "codebase": {
-        "nodes": 50,
-        "edges": 49
+        "nodes": 121,
+        "edges": 222
       },
       "domain": {
-        "nodes": 2,
+        "nodes": 4,
         "edges": 0
       },
       "knowledge": {
@@ -1756,6 +5258,9 @@
     }
   },
   "godNodes": [
-    "src/extension.ts"
+    "src/extension.ts",
+    "dist/extension.js",
+    "dist/extension.js:makeModelRequest",
+    "dist/extension.js:addHelpers"
   ]
 }
