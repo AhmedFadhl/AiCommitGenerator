@@ -1327,6 +1327,56 @@ Commit message:
     }
     return cleanCommitMessage(content);
   }
+  if (provider === "ollama") {
+    if (token.isCancellationRequested) throw new vscode3.CancellationError();
+    const model = config.get("ollamaModel") || "gemma2:9b";
+    const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.3,
+          num_predict: 500
+        }
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Ollama error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    return cleanCommitMessage(data.response);
+  }
+  if (provider === "deepseek") {
+    if (token.isCancellationRequested) throw new vscode3.CancellationError();
+    const model = config.get("deepseekModel") || "deepseek-chat";
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You write concise, semantic Git commit messages." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`DeepSeek error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    return cleanCommitMessage(data.choices?.[0]?.message?.content || "");
+  }
   throw new Error(`Unsupported provider: ${provider}`);
 }
 function activate(context) {
@@ -1399,10 +1449,10 @@ function activate(context) {
           if (githubInfo) {
             if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
-              const githubToken = config.get("issueTrackerToken");
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode3.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
-                outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                vscode3.window.showWarningMessage("GitHub authentication required to create issues.");
+                outputChannel.appendLine("\u26A0\uFE0F GitHub authentication missing. Skipping issue creation.");
                 return;
               }
               try {
@@ -1523,10 +1573,10 @@ function activate(context) {
             }
             if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
-              const githubToken = config.get("issueTrackerToken");
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode3.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
-                outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                vscode3.window.showWarningMessage("GitHub authentication required to create issues.");
+                outputChannel.appendLine("\u26A0\uFE0F GitHub authentication missing. Skipping issue creation.");
                 setGeneratingState(false);
                 return;
               }
@@ -1624,7 +1674,7 @@ async function createGitHubIssue(owner, repo, issueTitle, issueBody, issueLabels
   const config = vscode3.workspace.getConfiguration("aiCommitGenerator");
   const githubToken = await resolveGitHubToken();
   if (!githubToken) {
-    vscode3.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+    vscode3.window.showWarningMessage("GitHub authentication required. Please sign in or provide a token.");
     return void 0;
   }
   const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
@@ -1712,7 +1762,7 @@ ${diff}
     });
     const result = await model.generateContent(prompt);
     text = result.response.text();
-  } else {
+  } else if (provider === "openai") {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1721,6 +1771,41 @@ ${diff}
       },
       body: JSON.stringify({
         model: config.get("openaiModel") || "gpt-4o-mini",
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: "You classify code changes." },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    const data = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  } else if (provider === "ollama") {
+    const model = config.get("ollamaModel") || "gemma2:9b";
+    const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: { temperature: 0.1 }
+      })
+    });
+    if (!response.ok) throw new Error(`Ollama classification error: ${response.status}`);
+    const data = await response.json();
+    text = data.response;
+  } else if (provider === "deepseek") {
+    const model = config.get("deepseekModel") || "deepseek-chat";
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
         temperature: 0.1,
         messages: [
           { role: "system", content: "You classify code changes." },

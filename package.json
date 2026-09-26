@@ -2,7 +2,7 @@
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
   "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
@@ -27,7 +27,10 @@
     "github",
     "semantic",
     "automation",
-    "issue matching"
+    "issue matching",
+    "pro",
+    "workflow",
+    "productivity"
   ],
   "activationEvents": [
     "onView:scm"
@@ -64,7 +67,9 @@
           "enum": [
             "gemini",
             "openai",
-            "openrouter"
+            "openrouter",
+            "ollama",
+            "deepseek"
           ],
           "description": "AI provider to use for commit message generation."
         },
@@ -77,9 +82,20 @@
             "gemini-2.5-flash-lite",
             "gemini-2.5-pro",
             "gemini-3-flash-preview",
+            "gemini-1.5-flash",
             "gemini-1.5-pro"
           ],
           "description": "Gemini model to use."
+        },
+        "aiCommitGenerator.ollamaModel": {
+          "type": "string",
+          "default": "gemma2:9b",
+          "description": "Local model name for Ollama (e.g., gemma2:9b, llama3)."
+        },
+        "aiCommitGenerator.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Endpoint for the local Ollama instance."
         },
         "aiCommitGenerator.openaiModel": {
           "type": "string",
@@ -90,6 +106,15 @@
             "gpt-3.5-turbo"
           ],
           "description": "OpenAI model to use."
+        },
+        "aiCommitGenerator.deepseekModel": {
+          "type": "string",
+          "default": "deepseek-chat",
+          "enum": [
+            "deepseek-chat",
+            "deepseek-coder"
+          ],
+          "description": "DeepSeek model to use."
         },
         "aiCommitGenerator.openrouterModel": {
           "type": "string",
