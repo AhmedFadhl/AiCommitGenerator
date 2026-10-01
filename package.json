@@ -2,8 +2,8 @@
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
   "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "2.0.0",
-  "publisher": "AhmedFadhlAJ",
+  "version": "1.0.2",
+  "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
   "repository": {
@@ -14,9 +14,23 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other",
+    "Machine Learning",
     "SCM Providers",
-    "Machine Learning"
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "commit",
+    "git",
+    "gemini",
+    "openai",
+    "github",
+    "semantic",
+    "automation",
+    "issue matching",
+    "pro",
+    "workflow",
+    "productivity"
   ],
   "activationEvents": [
     "onView:scm"
@@ -42,6 +56,11 @@
       {
         "command": "ai-commit-generator.githubLogin",
         "title": "AI Commit Generator: Sign in to GitHub"
+      },
+      {
+        "command": "ai-commit-generator.selectModel",
+        "title": "Select AI Model",
+        "icon": "$(gear)"
       }
     ],
     "configuration": {
@@ -53,22 +72,37 @@
           "enum": [
             "gemini",
             "openai",
-            "openrouter"
+            "openrouter",
+            "ollama",
+            "deepseek"
           ],
           "description": "AI provider to use for commit message generation."
         },
         "aiCommitGenerator.geminiModel": {
           "type": "string",
-          "default": "gemini-3-flash-preview",
+          "default": "gemini-3.1-flash-lite-preview",
           "enum": [
             "gemini-2.0-flash",
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-2.5-pro",
             "gemini-3-flash-preview",
-            "gemini-1.5-pro"
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-3.1-flash-lite-preview",
+            "custom"
           ],
           "description": "Gemini model to use."
+        },
+        "aiCommitGenerator.ollamaModel": {
+          "type": "string",
+          "default": "gemma2:9b",
+          "description": "Local model name for Ollama (e.g., gemma2:9b, llama3)."
+        },
+        "aiCommitGenerator.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Endpoint for the local Ollama instance."
         },
         "aiCommitGenerator.openaiModel": {
           "type": "string",
@@ -76,9 +110,20 @@
           "enum": [
             "gpt-4o-mini",
             "gpt-4o",
-            "gpt-3.5-turbo"
+            "gpt-3.5-turbo",
+            "custom"
           ],
           "description": "OpenAI model to use."
+        },
+        "aiCommitGenerator.deepseekModel": {
+          "type": "string",
+          "default": "deepseek-chat",
+          "enum": [
+            "deepseek-chat",
+            "deepseek-coder",
+            "custom"
+          ],
+          "description": "DeepSeek model to use."
         },
         "aiCommitGenerator.openrouterModel": {
           "type": "string",
@@ -90,9 +135,47 @@
             "alibaba/tongyi-deepresearch-30b-a3b:free",
             "amazon/nova-2-lite-v1:free",
             "mistralai/devstral-2512:free",
-            "openai/gpt-oss-120b:free"
+            "openai/gpt-oss-120b:free",
+            "custom"
           ],
           "description": "OpenRouter model to use."
+        },
+        "aiCommitGenerator.customModel": {
+          "type": "string",
+          "default": "",
+          "description": "Active custom AI model identifier. Used when a provider's model is set to 'custom', or as an immediate override."
+        },
+        "aiCommitGenerator.customGeminiModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom Gemini models list. Add any custom or newly released Gemini model identifiers."
+        },
+        "aiCommitGenerator.customOpenaiModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom OpenAI models list."
+        },
+        "aiCommitGenerator.customDeepseekModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom DeepSeek models list."
+        },
+        "aiCommitGenerator.customOpenrouterModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom OpenRouter models list."
         },
         "aiCommitGenerator.apiKey": {
           "type": "string",
@@ -159,6 +242,11 @@
           "type": "boolean",
           "default": true,
           "description": "Include issue reference in commit message"
+        },
+        "aiCommitGenerator.projectContext": {
+          "type": "string",
+          "default": "",
+          "description": "The name of the project/context to associate with issues (used as a label or prefix)."
         }
       }
     },
@@ -175,6 +263,12 @@
           "when": "scmProvider == git && aiCommitGenerating",
           "group": "navigation",
           "icon": "$(sync~spin)"
+        },
+        {
+          "command": "ai-commit-generator.selectModel",
+          "when": "scmProvider == git",
+          "group": "navigation",
+          "icon": "$(gear)"
         },
         {
           "command": "ai-commit-generator.createIssueFromChanges",

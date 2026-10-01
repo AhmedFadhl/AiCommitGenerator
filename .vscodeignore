@@ -12,3 +12,12 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+companionSystem/**
+esbuild.js
+eslint.config.mjs
+tsconfig.json
+.gitmodules
+.git/**
+resources/*.sketch
+results/**
+tmp/**
