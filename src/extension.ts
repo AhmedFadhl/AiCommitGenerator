@@ -8,6 +8,8 @@ import { getGitHubAccessToken } from './githubAuth';
 import * as path from 'path';
 import { CommitPipeline } from './pipeline/orchestrator';
 import { invokeProvider } from './pipeline/llm-client';
+import { createPullRequest, checkPullRequestStatus, mergePullRequest } from './githubApi';
+import { registerAutoDeployCommand } from './autoDeploy';
 
 const execAsync = promisify(exec);
 
@@ -63,7 +65,7 @@ async function ensureGitRepo(cwd: string) {
   await execAsync('git rev-parse --is-inside-work-tree', { cwd });
 }
 
-async function getRemoteUrl(repoRoot: string): Promise<string | undefined> {
+export async function getRemoteUrl(repoRoot: string): Promise<string | undefined> {
   try {
     const { stdout } = await execAsync('git remote get-url origin', { cwd: repoRoot });
     return stdout.trim();
@@ -82,7 +84,7 @@ async function getRemoteUrl(repoRoot: string): Promise<string | undefined> {
   return undefined;
 }
 
-function parseGitHubUrl(url: string): { owner: string; repo: string } | undefined {
+export function parseGitHubUrl(url: string): { owner: string; repo: string } | undefined {
   // Matches:
   // https://github.com/owner/repo.git
   // git@github.com:owner/repo.git
@@ -370,7 +372,7 @@ async function showSelectModelQuickPick(): Promise<void> {
   }
 }
 
-async function generateCommitMessage(
+export async function generateCommitMessage(
   diff: string,
   issues: GitHubIssue[],
   token: vscode.CancellationToken
@@ -574,6 +576,11 @@ export function activate(context: vscode.ExtensionContext) {
                       outputChannel.appendLine(`✓ Created issue #${newIssue.number}`);
                       issuesToLink = [newIssue];
                       progress.report({ message: `✓ Issue #${newIssue.number} created` });
+                      
+                      if (sourceControl) {
+                        sourceControl.inputBox.value = tempMessage + `\n\nCloses #${newIssue.number}`;
+                      }
+
                       await new Promise(resolve => setTimeout(resolve, 400)); // Keep visible
                       return newIssue;
                     } else {
@@ -612,6 +619,8 @@ export function activate(context: vscode.ExtensionContext) {
       }
     )
   );
+
+  registerAutoDeployCommand(context, outputChannel);
 
 
   context.subscriptions.push(
@@ -685,7 +694,7 @@ export function activate(context: vscode.ExtensionContext) {
               analysisData = result.diffAnalysis;
               
               if (result.issueAnalysis && result.issueAnalysis.issues) {
-                linkedIssuesCount = result.issueAnalysis.issues.filter((i: any) => i.relation !== 'none' && i.confidence >= 0.75).length;
+                linkedIssuesCount = result.issueAnalysis.issues.filter((i: any) => i.relation !== 'none' && i.confidence >= 0.6).length;
               }
               
               shouldAutoCreate = includeIssueInCommit && autoCreateIssues && linkedIssuesCount === 0 && result.diffAnalysis.shouldCreateIssue;
@@ -853,15 +862,18 @@ async function createGitHubIssue(
 
 
 
-async function resolveGitHubToken(): Promise<string | undefined> {
+export async function resolveGitHubToken(): Promise<string | undefined> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
 
-  // 1️⃣ Prefer VS Code GitHub auth
+  // 1️⃣ User-provided token takes priority (solves org repo issues)
+  const manualToken = config.get<string>('issueTrackerToken');
+  if (manualToken) return manualToken;
+
+  // 2️⃣ Fallback to VS Code GitHub auth
   const oauthToken = await getGitHubAccessToken(false);
   if (oauthToken) return oauthToken;
 
-  // 2️⃣ Fallback to manual token
-  return config.get<string>('issueTrackerToken');
+  return undefined;
 }
 
 async function getCurrentGitHubUsername(): Promise<string | undefined> {

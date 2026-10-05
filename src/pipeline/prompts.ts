@@ -79,7 +79,7 @@ Return ONLY valid JSON:
     {
       "number": 123,
       "relation": "closes | relates | none",
-      "confidence": 0.0,
+      "confidence": 0.9, // Float between 0.0 and 1.0 representing confidence
       "reason": "Short explanation"
     }
   ]
@@ -141,13 +141,12 @@ BODY:
 
 ISSUES:
 ${issueAnalysis && issueAnalysis.issues.filter(i => i.relation !== 'none').length > 0 ? `
-For issues marked "closes":
-Use:
-Closes #<number>
+You MUST append the following issue references exactly as written below, at the very end of your commit body (leave a blank line before them):
 
-For issues marked "relates":
-Use:
-Relates to #<number>
+${issueAnalysis.issues
+  .filter(i => i.relation !== 'none')
+  .map(i => i.relation === 'closes' ? `Closes #${i.number}` : `Relates to #${i.number}`)
+  .join('\n')}
 ` : `
 Do NOT reference any issues.
 `}
@@ -155,8 +154,6 @@ Do NOT reference any issues.
 IMPORTANT:
 - Never create issue references yourself.
 - Only use issue numbers supplied in the analysis.
-- Never change an issue relationship.
-- Do not add issue references that were not approved by the issue analysis.
 - If there are no valid issue references, omit the issue section.
 
 ${validationFeedback ? `

@@ -2,7 +2,7 @@
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
   "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
@@ -56,6 +56,11 @@
       {
         "command": "ai-commit-generator.githubLogin",
         "title": "AI Commit Generator: Sign in to GitHub"
+      },
+      {
+        "command": "ai-commit-generator.createAndMergePR",
+        "title": "Auto-Deploy (Create & Merge PR)",
+        "icon": "$(git-pull-request)"
       },
       {
         "command": "ai-commit-generator.selectModel",
@@ -275,6 +280,12 @@
           "when": "scmProvider == git",
           "group": "navigation",
           "icon": "$(plus)"
+        },
+        {
+          "command": "ai-commit-generator.createAndMergePR",
+          "when": "scmProvider == git",
+          "group": "navigation",
+          "icon": "$(git-pull-request)"
         }
       ]
     }

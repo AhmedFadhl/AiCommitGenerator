@@ -22,17 +22,27 @@ export class CommitPipeline {
     // 1. Diff Analysis
     this.log('Phase 1: Analyzing Diff (JSON)...');
     const rawAnalysis = await this.generateText(analysisPrompt(diff), true);
-    const analysis = extractJson<DiffAnalysis>(rawAnalysis);
-    this.log(`Analysis complete. Type: ${analysis.type}, ShouldCreateIssue: ${analysis.shouldCreateIssue}`);
+    let analysis: DiffAnalysis;
+    try {
+      analysis = extractJson<DiffAnalysis>(rawAnalysis);
+      this.log(`Analysis complete. Type: ${analysis.type}, ShouldCreateIssue: ${analysis.shouldCreateIssue}`);
+    } catch (e) {
+      this.log('Failed to parse DiffAnalysis JSON, using fallback.');
+      analysis = { type: 'chore', summary: 'Update', reason: null, impact: null, confidence: 0, shouldCreateIssue: false };
+    }
 
     // 2. Issue Analysis (if issues exist)
     let issueAnalysis: IssueAnalysis | null = null;
     if (openIssues.length > 0) {
       this.log('Phase 2: Analyzing Issues against Diff (JSON)...');
       const rawIssueAnalysis = await this.generateText(issueAnalysisPrompt(diff, openIssues), true);
-      issueAnalysis = extractJson<IssueAnalysis>(rawIssueAnalysis);
-      const linked = issueAnalysis.issues.filter(i => i.relation !== 'none' && i.confidence >= 0.75).length;
-      this.log(`Issue analysis complete. Linked ${linked} issues.`);
+      try {
+        issueAnalysis = extractJson<IssueAnalysis>(rawIssueAnalysis);
+        const linked = issueAnalysis.issues.filter(i => i.relation !== 'none' && i.confidence >= 0.6).length;
+        this.log(`Issue analysis complete. Linked ${linked} issues (confidence >= 0.6).`);
+      } catch (e) {
+        this.log('Failed to parse IssueAnalysis JSON. Skipping issue linking.');
+      }
     }
 
     // 3. Commit Generation & Validation Loop
@@ -41,8 +51,14 @@ export class CommitPipeline {
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       this.log(`Attempt ${attempt} of ${this.maxRetries}...`);
+      let approvedIssueAnalysis = issueAnalysis;
+      if (issueAnalysis) {
+        approvedIssueAnalysis = {
+          issues: issueAnalysis.issues.filter(i => i.relation !== 'none' && i.confidence >= 0.6)
+        };
+      }
       
-      const rawCommit = await this.generateText(commitPrompt(diff, analysis, issueAnalysis, validationFeedback), false);
+      const rawCommit = await this.generateText(commitPrompt(diff, analysis, approvedIssueAnalysis, validationFeedback), false);
       const finalCommit = rawCommit.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
 
       // Validate
@@ -55,7 +71,7 @@ export class CommitPipeline {
 
       // Validate issues
       if (issueAnalysis) {
-        const approvedIssues = issueAnalysis.issues.filter(i => i.relation !== 'none' && i.confidence >= 0.75) as any;
+        const approvedIssues = issueAnalysis.issues.filter(i => i.relation !== 'none' && i.confidence >= 0.6) as any;
         const refErrors = validateIssueReferences(finalCommit, approvedIssues);
         const relErrors = validateIssueRelations(finalCommit, approvedIssues);
         
