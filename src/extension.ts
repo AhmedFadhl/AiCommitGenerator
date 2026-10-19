@@ -10,6 +10,7 @@ import { CommitPipeline } from './pipeline/orchestrator';
 import { invokeProvider } from './pipeline/llm-client';
 import { createPullRequest, checkPullRequestStatus, mergePullRequest } from './githubApi';
 import { registerAutoDeployCommand } from './autoDeploy';
+import { GoogleAuthService } from './services/googleAuth';
 
 const execAsync = promisify(exec);
 
@@ -395,6 +396,16 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
 
+  // Initialize Google AI Studio OAuth Service
+  GoogleAuthService.getInstance().initialize(context);
+  context.subscriptions.push(
+    vscode.window.registerUriHandler({
+      handleUri(uri: vscode.Uri) {
+        GoogleAuthService.getInstance().handleUriCallback(uri);
+      }
+    })
+  );
+
   // Function to set generating state for dynamic icon
   const setGeneratingState = (isGenerating: boolean) => {
     vscode.commands.executeCommand('setContext', 'aiCommitGenerating', isGenerating);
@@ -431,15 +442,45 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Status bar indicator for active model
+  // Status bar indicator for active model & auth hub
   const modelStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  modelStatusBarItem.command = 'ai-commit-generator.selectModel';
-  const updateStatusBar = () => {
+  modelStatusBarItem.command = 'ai-commit-generator.configureFeatures';
+
+  const updateStatusBar = async () => {
     const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
     const p = cfg.get<string>('provider') || 'gemini';
     const m = getActiveModel(p, cfg);
-    modelStatusBarItem.text = `$(sparkle) ${p}:${m}`;
-    modelStatusBarItem.tooltip = `Active AI Model: ${m} (${p})\nClick to select or add custom model`;
+    const googleAuthMode = cfg.get<boolean>('googleAuthMode', false);
+
+    if (googleAuthMode) {
+      const email = await GoogleAuthService.getInstance().getStoredEmail();
+      if (email) {
+        modelStatusBarItem.text = `$(sparkle) ${p}:${m} ($(account) ${email})`;
+        modelStatusBarItem.tooltip = new vscode.MarkdownString(
+          `**AI Commit Generator Pro**\n\n` +
+          `- **Auth Mode:** Google AI Studio (OAuth 2.0 PKCE)\n` +
+          `- **Account:** \`${email}\` (1,500 free requests/day)\n` +
+          `- **Active Model:** \`${m}\`\n\n` +
+          `*Click to configure features, switch models, or sign out.*`
+        );
+      } else {
+        modelStatusBarItem.text = `$(sparkle) ${p}:${m} ($(alert) Sign In)`;
+        modelStatusBarItem.tooltip = new vscode.MarkdownString(
+          `**AI Commit Generator Pro**\n\n` +
+          `- **Auth Mode:** Google AI Studio (Not signed in)\n` +
+          `- **Active Model:** \`${m}\`\n\n` +
+          `*Click to sign in with Google or configure features.*`
+        );
+      }
+    } else {
+      modelStatusBarItem.text = `$(sparkle) ${p}:${m}`;
+      modelStatusBarItem.tooltip = new vscode.MarkdownString(
+        `**AI Commit Generator Pro**\n\n` +
+        `- **Auth Mode:** API Key (${p})\n` +
+        `- **Active Model:** \`${m}\`\n\n` +
+        `*Click to configure features, toggles, or switch models.*`
+      );
+    }
     modelStatusBarItem.show();
   };
   updateStatusBar();
@@ -455,10 +496,153 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
+      'ai-commit-generator.configureFeatures',
+      async () => {
+        const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+        const googleAuthMode = cfg.get<boolean>('googleAuthMode', false);
+        const enableMultiStyle = cfg.get<boolean>('enableMultiStyle', false);
+        const enableSecretScanner = cfg.get<boolean>('enableSecretScanner', true);
+        const enableSmartDiffFilter = cfg.get<boolean>('enableSmartDiffFilter', true);
+        const commitLanguage = cfg.get<string>('commitLanguage', 'en');
+        const p = cfg.get<string>('provider') || 'gemini';
+        const m = getActiveModel(p, cfg);
+        const email = await GoogleAuthService.getInstance().getStoredEmail();
+
+        const items: (vscode.QuickPickItem & { action: () => Promise<void> })[] = [
+          {
+            label: `${googleAuthMode ? '$(check)' : '$(circle-slash)'} Google AI Studio Account Auth`,
+            description: googleAuthMode ? `Enabled (${email || 'Signed In'})` : 'Disabled (Using API Key)',
+            detail: 'Use Google OAuth 2.0 PKCE for 1,500 free requests/day without manual API keys',
+            action: async () => {
+              if (!googleAuthMode && !email) {
+                await vscode.commands.executeCommand('ai-commit-generator.signInWithGoogle');
+              } else {
+                await cfg.update('googleAuthMode', !googleAuthMode, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Google AI Studio Auth Mode: ${!googleAuthMode ? 'Enabled' : 'Disabled'}`);
+                await updateStatusBar();
+              }
+            }
+          },
+          {
+            label: `${enableMultiStyle ? '$(check)' : '$(circle-slash)'} Multi-Style Commit Variations`,
+            description: enableMultiStyle ? 'Enabled' : 'Disabled',
+            detail: 'Presents 3 variations (Concise, Detailed, Gitmoji) in a QuickPick menu on every commit',
+            action: async () => {
+              await cfg.update('enableMultiStyle', !enableMultiStyle, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Multi-Style Commit Variations: ${!enableMultiStyle ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            label: `${enableSecretScanner ? '$(check)' : '$(circle-slash)'} Pre-Commit Secret Scanner`,
+            description: enableSecretScanner ? 'Enabled' : 'Disabled',
+            detail: 'Scans added lines for leaked credentials (AWS, Google, OpenAI, GitHub, JWT, Private Keys)',
+            action: async () => {
+              await cfg.update('enableSecretScanner', !enableSecretScanner, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Pre-Commit Secret Scanner: ${!enableSecretScanner ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            label: `${enableSmartDiffFilter ? '$(check)' : '$(circle-slash)'} Smart Diff Noise Filter`,
+            description: enableSmartDiffFilter ? 'Enabled' : 'Disabled',
+            detail: 'Prunes package-lock.json, minified files, and binary assets from diff to save tokens',
+            action: async () => {
+              await cfg.update('enableSmartDiffFilter', !enableSmartDiffFilter, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Smart Diff Noise Filter: ${!enableSmartDiffFilter ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            label: `$(globe) Commit Language: ${commitLanguage.toUpperCase()}`,
+            description: commitLanguage === 'en' ? 'English' : commitLanguage === 'ar' ? 'Arabic' : 'Bilingual',
+            detail: 'Select language style: English, Arabic (العربية), or Bilingual (English subject + Arabic body)',
+            action: async () => {
+              const langPick = await vscode.window.showQuickPick([
+                { label: 'English', value: 'en', description: 'Standard conventional commits in English' },
+                { label: 'العربية (Arabic)', value: 'ar', description: 'رسائل التزام باللغة العربية الفصحى' },
+                { label: 'Bilingual (مزدوج)', value: 'bilingual', description: 'English subject with Arabic explanation in body' }
+              ], { placeHolder: 'Select Commit Language' });
+              if (langPick) {
+                await cfg.update('commitLanguage', langPick.value, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Commit Language updated to: ${langPick.label}`);
+              }
+            }
+          },
+          {
+            label: `$(gear) Select AI Model & Provider`,
+            description: `${p}:${m}`,
+            detail: 'Switch between Gemini, OpenAI, Claude, or custom models',
+            action: async () => {
+              await showSelectModelQuickPick();
+              await updateStatusBar();
+            }
+          }
+        ];
+
+        if (email) {
+          items.push({
+            label: `$(sign-out) Sign Out of Google Account`,
+            description: email,
+            detail: 'Revoke local session and switch back to API Key mode',
+            action: async () => {
+              await vscode.commands.executeCommand('ai-commit-generator.signOutGoogle');
+            }
+          });
+        }
+
+        const selected = await vscode.window.showQuickPick(items, {
+          placeHolder: 'AI Commit Generator Pro - Quick Settings Hub'
+        });
+
+        if (selected) {
+          await selected.action();
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.signInWithGoogle',
+      async () => {
+        try {
+          vscode.window.showInformationMessage('Starting Google AI Studio OAuth login...');
+          const success = await GoogleAuthService.getInstance().login();
+          if (success) {
+            const email = await GoogleAuthService.getInstance().getStoredEmail();
+            const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+            await cfg.update('googleAuthMode', true, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`Successfully signed in to Google AI Studio${email ? ` as ${email}` : ''}! 🎉 (1,500 requests/day active)`);
+            await updateStatusBar();
+          }
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Google Sign-In failed: ${err.message || String(err)}`);
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.signOutGoogle',
+      async () => {
+        try {
+          await GoogleAuthService.getInstance().logout();
+          const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+          await cfg.update('googleAuthMode', false, vscode.ConfigurationTarget.Global);
+          vscode.window.showInformationMessage('Signed out of Google account. Reverted to API Key mode.');
+          await updateStatusBar();
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Google Sign-Out failed: ${err.message || String(err)}`);
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
       'ai-commit-generator.selectModel',
       async () => {
         await showSelectModelQuickPick();
-        updateStatusBar();
+        await updateStatusBar();
       }
     )
   );

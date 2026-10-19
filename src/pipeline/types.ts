@@ -36,3 +36,13 @@ export interface GitHubIssueBasic {
   title: string;
   body?: string;
 }
+
+export interface MultiStyleCommit {
+  concise: string;
+  detailed: string;
+  gitmoji: string;
+}
+
+export type AuthCredentials =
+  | { mode: 'apiKey'; apiKey: string }
+  | { mode: 'googleAccount'; accessToken: string; email?: string };

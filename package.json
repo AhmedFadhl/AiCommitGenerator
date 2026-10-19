@@ -66,6 +66,21 @@
         "command": "ai-commit-generator.selectModel",
         "title": "Select AI Model",
         "icon": "$(gear)"
+      },
+      {
+        "command": "ai-commit-generator.configureFeatures",
+        "title": "AI Commit: Configure Features & Toggles",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ai-commit-generator.signInWithGoogle",
+        "title": "AI Commit: Sign in with Google (AI Studio)",
+        "icon": "$(account)"
+      },
+      {
+        "command": "ai-commit-generator.signOutGoogle",
+        "title": "AI Commit: Sign out from Google Account",
+        "icon": "$(sign-out)"
       }
     ],
     "configuration": {
@@ -252,6 +267,40 @@
           "type": "string",
           "default": "",
           "description": "The name of the project/context to associate with issues (used as a label or prefix)."
+        },
+        "aiCommitGenerator.googleAuthMode": {
+          "type": "string",
+          "enum": [
+            "Account",
+            "ApiKey"
+          ],
+          "default": "Account",
+          "description": "Authentication method for Google AI Studio / Gemini: 'Account' (OAuth PKCE with free daily quota) or 'ApiKey' (traditional static key)."
+        },
+        "aiCommitGenerator.enableMultiStyle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable 3 commit style variations (Concise, Detailed, Gitmoji) presented in an interactive QuickPick."
+        },
+        "aiCommitGenerator.enableSecretScanner": {
+          "type": "boolean",
+          "default": true,
+          "description": "Pre-scan staged git diffs for leaked secrets, tokens, or credentials before dispatching to AI models."
+        },
+        "aiCommitGenerator.enableSmartDiffFilter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically exclude lockfiles (package-lock.json, yarn.lock) and compiled assets from AI diff prompts to conserve tokens."
+        },
+        "aiCommitGenerator.commitLanguage": {
+          "type": "string",
+          "enum": [
+            "en",
+            "ar",
+            "bilingual"
+          ],
+          "default": "en",
+          "description": "Preferred language for generated commit messages (English, Arabic, or Bilingual)."
         }
       }
     },

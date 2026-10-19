@@ -1,4 +1,5 @@
 import { DiffAnalysis, IssueAnalysis, GitHubIssueBasic } from './types';
+import { CommitLanguage } from './config';
 
 export const analysisPrompt = (diff: string) => `
 You are an expert software engineer analyzing a Git diff.
@@ -101,10 +102,63 @@ DIFF:
 ${diff}
 `;
 
-export const commitPrompt = (diff: string, analysis: DiffAnalysis, issueAnalysis: IssueAnalysis | null, validationFeedback: string = "") => `
+export const commitPrompt = (
+  diff: string,
+  analysis: DiffAnalysis,
+  issueAnalysis: IssueAnalysis | null,
+  validationFeedback: string = "",
+  language: CommitLanguage = "en",
+  multiStyle: boolean = false
+) => {
+  const languageInstruction = 
+    language === 'ar' ? 'LANGUAGE: Write the commit message description and body strictly in clear, professional Arabic (مثال: feat: إضافة ميزة تسجيل الدخول).' :
+    language === 'bilingual' ? 'LANGUAGE: Write the commit subject in English, followed by an Arabic explanation in the body.' :
+    'LANGUAGE: Write the commit message in English.';
+
+  const issueReferences = issueAnalysis && issueAnalysis.issues.filter(i => i.relation !== 'none').length > 0
+    ? issueAnalysis.issues
+        .filter(i => i.relation !== 'none')
+        .map(i => i.relation === 'closes' ? `Closes #${i.number}` : `Relates to #${i.number}`)
+        .join('\n')
+    : '';
+
+  if (multiStyle) {
+    return `
+You are an expert Git commit message writer.
+Generate THREE variations of the commit message for the changes described below.
+
+${languageInstruction}
+
+VARIATION STYLES:
+1. "concise": A short, direct, imperative subject under 50 characters (e.g., "feat: add user authentication").
+2. "detailed": A conventional commit with a clear subject, a blank line, and a concise bulleted body explaining what and why.
+3. "gitmoji": An expressive commit with an appropriate Gitmoji icon prefix (e.g., "✨ feat: add user authentication" or "🐛 fix: resolve memory leak").
+
+${issueReferences ? `Append these issue references at the end of each variation:\n${issueReferences}` : ''}
+
+${validationFeedback ? `VALIDATION FEEDBACK: ${validationFeedback}\nPlease fix these errors.` : ''}
+
+Return ONLY valid JSON matching this exact schema:
+{
+  "concise": "type: subject",
+  "detailed": "type: subject\\n\\n- bullet 1\\n- bullet 2",
+  "gitmoji": "emoji type: subject"
+}
+
+ANALYSIS:
+${JSON.stringify(analysis, null, 2)}
+
+DIFF:
+${diff}
+`;
+  }
+
+  return `
 You are an expert Git commit message writer.
 
 Generate ONE semantic Git commit message from the structured analysis below.
+
+${languageInstruction}
 
 COMMIT FORMAT:
 
@@ -119,62 +173,26 @@ RULES:
 SUBJECT:
 - Use imperative mood.
 - Maximum 50 characters INCLUDING the type prefix.
-- Start with exactly one of:
-  feat:
-  fix:
-  refactor:
-  chore:
-  docs:
-  test:
-- Describe the main change.
-- Be specific and concise.
+- Start with exactly one of: feat:, fix:, refactor:, chore:, docs:, test:
+- Describe the main change specifically.
 - Do not end with a period.
-- Do not use vague subjects.
 
 BODY:
-- Explain WHAT changed.
-- Explain WHY when reliably known.
-- Mention important behavioral or architectural impact when relevant.
-- Do not repeat the subject.
-- Do not invent information.
-- Keep it concise.
+- Explain WHAT changed and WHY when known.
+- Do not repeat the subject. Keep it concise.
 
-ISSUES:
-${issueAnalysis && issueAnalysis.issues.filter(i => i.relation !== 'none').length > 0 ? `
-You MUST append the following issue references exactly as written below, at the very end of your commit body (leave a blank line before them):
+${issueReferences ? `ISSUES:\nYou MUST append these issue references at the very end of the commit:\n${issueReferences}` : 'Do NOT reference any issues.'}
 
-${issueAnalysis.issues
-  .filter(i => i.relation !== 'none')
-  .map(i => i.relation === 'closes' ? `Closes #${i.number}` : `Relates to #${i.number}`)
-  .join('\n')}
-` : `
-Do NOT reference any issues.
-`}
-
-IMPORTANT:
-- Never create issue references yourself.
-- Only use issue numbers supplied in the analysis.
-- If there are no valid issue references, omit the issue section.
-
-${validationFeedback ? `
-VALIDATION FEEDBACK FROM PREVIOUS ATTEMPT:
-${validationFeedback}
-Please FIX the errors mentioned above in your new response.
-` : ''}
+${validationFeedback ? `VALIDATION FEEDBACK:\n${validationFeedback}\nPlease FIX the errors above.` : ''}
 
 OUTPUT:
-- Return ONLY the commit message.
-- No Markdown.
-- No code fences.
-- No "Commit message:" label.
-- No explanation.
+- Return ONLY the raw commit message.
+- No Markdown fences, no explanations.
 
 ANALYSIS:
 ${JSON.stringify(analysis, null, 2)}
 
-ISSUE ANALYSIS:
-${issueAnalysis ? JSON.stringify(issueAnalysis, null, 2) : 'No issues to analyze.'}
-
 DIFF:
 ${diff}
 `;
+};
