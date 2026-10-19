@@ -11,6 +11,8 @@ export interface PipelineConfig {
   readonly commitLanguage: CommitLanguage;
   readonly commitFormat: string;
   readonly provider: string;
+  readonly maxTokens: number;
+  readonly maxRetries: number;
 }
 
 /**
@@ -36,6 +38,12 @@ export function getPipelineConfig(resourceUri?: vscode.Uri): PipelineConfig {
   const commitFormat = config.get<string>('commitFormat', 'conventional') || 'conventional';
   const provider = config.get<string>('provider', 'gemini') || 'gemini';
 
+  const rawMaxTokens = config.get<number>('maxTokens', 2000);
+  const maxTokens = Math.max(100, Math.min(16000, typeof rawMaxTokens === 'number' && !isNaN(rawMaxTokens) ? rawMaxTokens : 2000));
+
+  const rawMaxRetries = config.get<number>('maxRetries', 3);
+  const maxRetries = Math.max(1, Math.min(10, typeof rawMaxRetries === 'number' && !isNaN(rawMaxRetries) ? rawMaxRetries : 3));
+
   return Object.freeze({
     googleAuthMode,
     enableMultiStyle,
@@ -43,6 +51,8 @@ export function getPipelineConfig(resourceUri?: vscode.Uri): PipelineConfig {
     enableSmartDiffFilter,
     commitLanguage,
     commitFormat,
-    provider
+    provider,
+    maxTokens,
+    maxRetries
   });
 }

@@ -4,7 +4,12 @@ export const VALID_TYPES = [
   "refactor",
   "chore",
   "docs",
-  "test"
+  "test",
+  "perf",
+  "build",
+  "ci",
+  "style",
+  "revert"
 ] as const;
 
 export function validateCommitMessage(message: string): {
@@ -19,22 +24,23 @@ export function validateCommitMessage(message: string): {
     return { valid: false, errors };
   }
 
-  const subject = lines[0];
-  const typeMatch = subject.match(/^(feat|fix|refactor|chore|docs|test): /);
+  const subject = lines[0].trim();
+  // Support optional scope e.g. feat(pipeline): or fix(auth):
+  const typeMatch = subject.match(/^(feat|fix|refactor|chore|docs|test|perf|build|ci|style|revert)(\([a-zA-Z0-9_\-./ ]+\))?: /i);
 
   if (!typeMatch) {
     errors.push("Invalid semantic commit type or missing space after colon.");
   }
 
-  if (subject.length > 50) {
-    errors.push(`Subject is ${subject.length} characters; maximum is 50.`);
+  if (subject.length > 72) {
+    errors.push(`Subject is ${subject.length} characters; maximum is 72.`);
   }
 
   if (subject.endsWith(".")) {
     errors.push("Subject must not end with a period.");
   }
 
-  if (subject.length <= (typeMatch?.[0].length ?? 0)) {
+  if (typeMatch && subject.slice(typeMatch[0].length).trim().length === 0) {
     errors.push("Commit subject description is empty.");
   }
 

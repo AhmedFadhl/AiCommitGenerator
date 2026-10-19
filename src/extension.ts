@@ -373,6 +373,8 @@ async function showSelectModelQuickPick(): Promise<void> {
   }
 }
 
+let globalOutputChannel: vscode.OutputChannel | undefined;
+
 export async function generateCommitMessage(
   diff: string,
   issues: GitHubIssue[],
@@ -381,7 +383,13 @@ export async function generateCommitMessage(
 
   const pipeline = new CommitPipeline(
     (prompt, expectJson) => invokeProvider(prompt, token, expectJson),
-    2
+    undefined,
+    (msg: string) => {
+      console.log(`[AI Commit Pipeline] ${msg}`);
+      if (globalOutputChannel) {
+        globalOutputChannel.appendLine(`[Pipeline] ${msg}`);
+      }
+    }
   );
   return await pipeline.generate(diff, issues);
 }
@@ -395,6 +403,7 @@ export function activate(context: vscode.ExtensionContext) {
   let classification: IssueClassification | undefined;
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
+  globalOutputChannel = outputChannel;
 
   // Initialize Google AI Studio OAuth Service
   GoogleAuthService.getInstance().initialize(context);

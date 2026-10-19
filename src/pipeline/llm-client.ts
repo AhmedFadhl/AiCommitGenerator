@@ -1,6 +1,32 @@
 import * as vscode from 'vscode';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleAuthService } from '../services/googleAuth';
+import { getPipelineConfig } from './config';
+
+function isReasoningModel(model: string): boolean {
+  const m = model.toLowerCase().trim();
+  return (
+    /^o\d/i.test(m) ||
+    m.startsWith('o1') ||
+    m.startsWith('o3') ||
+    m.startsWith('o4') ||
+    m.startsWith('gpt-5') ||
+    m.includes('o1') ||
+    m.includes('o3') ||
+    m.includes('o4') ||
+    m.includes('reasoning') ||
+    m.includes('reasoner')
+  );
+}
+
+function shouldUseMaxCompletionTokens(model: string): boolean {
+  const m = model.toLowerCase().trim();
+  if (isReasoningModel(m)) return true;
+  if (m.startsWith('gpt-3.5') || m.startsWith('gpt-4-0613') || m.startsWith('gpt-4-0314')) {
+    return false;
+  }
+  return true;
+}
 
 export function getActiveModelForProvider(provider: string, config?: vscode.WorkspaceConfiguration): string {
   const cfg = config || vscode.workspace.getConfiguration('aiCommitGenerator');
@@ -33,6 +59,9 @@ export async function invokeProvider(
   const apiKey = config.get<string>('apiKey')?.trim();
 
   if (token.isCancellationRequested) throw new vscode.CancellationError();
+
+  const pipelineConfig = getPipelineConfig();
+  const maxTokens = pipelineConfig.maxTokens;
 
   const sysPrompt = expectJson 
     ? 'You are an analytical engine. You MUST respond with ONLY valid JSON.'
@@ -67,7 +96,7 @@ export async function invokeProvider(
 
       // If active access token exists, dispatch via Bearer token to Gemini REST endpoint
       if (accessToken) {
-        return await callGeminiWithBearer(modelName, prompt, accessToken, expectJson, authService);
+        return await callGeminiWithBearer(modelName, prompt, accessToken, expectJson, authService, 0, maxTokens);
       }
     }
 
@@ -79,7 +108,10 @@ export async function invokeProvider(
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: modelName,
-      generationConfig: expectJson ? { responseMimeType: "application/json" } : undefined
+      generationConfig: {
+        responseMimeType: expectJson ? "application/json" : undefined,
+        maxOutputTokens: maxTokens
+      }
     });
     const result = await model.generateContent(prompt);
     return result.response.text();
@@ -88,24 +120,75 @@ export async function invokeProvider(
   if (provider === 'openai') {
     if (!apiKey) throw new Error('OpenAI API key not configured.');
     const model = getActiveModelForProvider('openai', config);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const isReasoning = isReasoningModel(model);
+    const isCustom = config.get<string>('openaiModel') === 'custom';
+
+    const payload: Record<string, any> = {
+      model,
+      messages: [
+        { role: isReasoning ? 'developer' : 'system', content: sysPrompt },
+        { role: 'user', content: prompt }
+      ]
+    };
+
+    if (expectJson) {
+      payload.response_format = { type: "json_object" };
+    }
+
+    // Reasoning models (o1, o3, etc.) and custom models reject custom temperature values
+    if (!isReasoning && !isCustom) {
+      payload.temperature = 0.3;
+    }
+
+    // Models requiring max_completion_tokens (o1, o3, modern gpt-4o, custom models) vs legacy max_tokens
+    if (shouldUseMaxCompletionTokens(model)) {
+      payload.max_completion_tokens = maxTokens;
+    } else {
+      payload.max_tokens = maxTokens;
+    }
+
+    let response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model,
-        response_format: expectJson ? { type: "json_object" } : undefined,
-        messages: [
-          { role: 'system', content: sysPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 500
-      })
+      body: JSON.stringify(payload)
     });
-    if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`);
+
+    // Adaptive Self-Healing: if OpenAI rejects temperature or parameter nuances, fix and retry immediately
+    if (!response.ok) {
+      const errText = await response.text();
+      let shouldRetry = false;
+
+      if (payload.temperature !== undefined && (errText.includes('temperature') || errText.includes('unsupported_value'))) {
+        delete payload.temperature;
+        shouldRetry = true;
+      }
+
+      if (payload.max_tokens !== undefined && (errText.includes('max_completion_tokens') || errText.includes('unsupported_parameter'))) {
+        payload.max_completion_tokens = payload.max_tokens;
+        delete payload.max_tokens;
+        shouldRetry = true;
+      }
+
+      if (shouldRetry) {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!response.ok) {
+        const finalErr = shouldRetry ? await response.text() : errText;
+        throw new Error(`OpenAI API error (${response.status}): ${finalErr}`);
+      }
+    }
+
     const data: any = await response.json();
     return data?.choices?.[0]?.message?.content || '';
   }
@@ -121,7 +204,7 @@ export async function invokeProvider(
         prompt: sysPrompt + "\n\n" + prompt,
         stream: false,
         format: expectJson ? "json" : undefined,
-        options: { temperature: 0.3, num_predict: 500 }
+        options: { temperature: 0.3, num_predict: maxTokens }
       })
     });
     if (!response.ok) throw new Error(`Ollama error (${response.status}): ${await response.text()}`);
@@ -146,7 +229,7 @@ export async function invokeProvider(
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: maxTokens
       })
     });
     if (!response.ok) throw new Error(`DeepSeek error (${response.status}): ${await response.text()}`);
@@ -171,7 +254,7 @@ export async function invokeProvider(
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: maxTokens
       })
     });
     if (!response.ok) throw new Error(`OpenRouter error (${response.status}): ${await response.text()}`);
@@ -188,7 +271,8 @@ async function callGeminiWithBearer(
   accessToken: string,
   expectJson: boolean,
   authService: GoogleAuthService,
-  retryCount: number = 0
+  retryCount: number = 0,
+  maxTokens: number = 2000
 ): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
@@ -198,7 +282,10 @@ async function callGeminiWithBearer(
         parts: [{ text: prompt }]
       }
     ],
-    generationConfig: expectJson ? { responseMimeType: "application/json" } : undefined
+    generationConfig: {
+      responseMimeType: expectJson ? "application/json" : undefined,
+      maxOutputTokens: maxTokens
+    }
   };
 
   const response = await fetch(url, {
@@ -214,7 +301,7 @@ async function callGeminiWithBearer(
   if (response.status === 401 && retryCount === 0) {
     const newToken = await authService.refreshToken();
     if (newToken) {
-      return await callGeminiWithBearer(modelName, prompt, newToken, expectJson, authService, retryCount + 1);
+      return await callGeminiWithBearer(modelName, prompt, newToken, expectJson, authService, retryCount + 1, maxTokens);
     }
   }
 

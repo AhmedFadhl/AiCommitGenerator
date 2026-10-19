@@ -85,9 +85,12 @@ export class CommitPipeline {
     // 3. Commit Generation & Validation Loop
     this.log('Phase 3: Generating final commit message...');
     let validationFeedback = "";
+    let lastGeneratedRawCommit: string | null = null;
+    let lastGeneratedVariations: MultiStyleCommit | null = null;
+    const effectiveRetries = this.maxRetries ?? config.maxRetries ?? 3;
 
-    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-      this.log(`Attempt ${attempt} of ${this.maxRetries}...`);
+    for (let attempt = 1; attempt <= effectiveRetries; attempt++) {
+      this.log(`Attempt ${attempt} of ${effectiveRetries}...`);
       let approvedIssueAnalysis = issueAnalysis;
       if (issueAnalysis) {
         approvedIssueAnalysis = {
@@ -107,6 +110,7 @@ export class CommitPipeline {
           if (!variations.concise || !variations.detailed || !variations.gitmoji) {
             throw new Error('Missing one or more required variation fields.');
           }
+          lastGeneratedVariations = variations;
         } catch (e) {
           validationFeedback = "Failed to parse multi-style JSON. Ensure valid JSON with concise, detailed, and gitmoji fields.";
           this.log(validationFeedback);
@@ -168,6 +172,7 @@ export class CommitPipeline {
           false
         );
         const finalCommit = rawCommit.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+        lastGeneratedRawCommit = finalCommit;
 
         // Validate
         const semanticValidation = validateCommitMessage(finalCommit);
@@ -196,6 +201,45 @@ export class CommitPipeline {
       }
     }
     
-    throw new Error('Pipeline failed to generate a valid commit message after maximum retries.');
+    // Graceful Auto-Sanitization Fallback: If retries exhaust, sanitize and return best effort instead of crashing
+    this.log('Validation retries exhausted. Applying graceful auto-sanitization fallback...');
+
+    if (lastGeneratedVariations?.concise) {
+      const sanitized = this.sanitizeCommitFallback(lastGeneratedVariations.concise);
+      this.log(`Recovered valid commit from multi-style concise variation: "${sanitized.split('\n')[0]}"`);
+      return { commitMessage: sanitized, diffAnalysis: analysis, issueAnalysis };
+    }
+
+    if (lastGeneratedRawCommit) {
+      const sanitized = this.sanitizeCommitFallback(lastGeneratedRawCommit);
+      this.log(`Recovered valid commit from raw output: "${sanitized.split('\n')[0]}"`);
+      return { commitMessage: sanitized, diffAnalysis: analysis, issueAnalysis };
+    }
+
+    const baselineCommit = `${analysis.type || 'chore'}: ${analysis.summary || 'update project files'}`.slice(0, 72);
+    this.log(`Falling back to baseline semantic commit: "${baselineCommit}"`);
+    return { commitMessage: baselineCommit, diffAnalysis: analysis, issueAnalysis };
+  }
+
+  private sanitizeCommitFallback(raw: string): string {
+    const cleaned = raw.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+    const lines = cleaned.split('\n');
+    let subject = lines[0].trim();
+
+    const typeMatch = subject.match(/^(feat|fix|refactor|chore|docs|test|perf|build|ci|style|revert)(\([a-zA-Z0-9_\-./ ]+\))?: /i);
+    if (!typeMatch) {
+      subject = `chore: ${subject}`;
+    }
+
+    if (subject.endsWith('.')) {
+      subject = subject.slice(0, -1);
+    }
+
+    if (subject.length > 72) {
+      subject = subject.slice(0, 72).trim();
+    }
+
+    lines[0] = subject;
+    return lines.join('\n');
   }
 }
