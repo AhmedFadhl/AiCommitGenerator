@@ -1079,7 +1079,7 @@ async function findRelevantIssue(diff, issues, token) {
     (i) => `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 800).replace(/\n/g, " ")}${i.body.length > 800 ? "..." : ""}`
   ).join("\n");
   const prompt = `
-Analyze the Git diff below and identify if it DIRECTLY addresses one of the open issues.
+Analyze the Git diff below and identify if it DIRECTLY addresses one or more of the open issues.
 
 CRITERIA FOR A MATCH:
 1. The diff implements a feature requested in the issue.
@@ -1098,12 +1098,12 @@ Diff:
 ${diff}
 
 Task:
-- If a relevant issue exists, respond ONLY with the issue number (e.g., "123").
+- If relevant issues exist, respond ONLY with a comma-separated list of issue numbers (e.g., "123, 125, 401").
 - If NO issue is directly and necessarily addressed, respond ONLY with "NONE".
 - DO NOT explain your reasoning.
 - DO NOT hallucinate issue numbers.
 
-Relevant Issue Number (or NONE):
+Relevant Issue Numbers (or NONE):
 `;
   let responseText = "";
   if (provider === "gemini") {
@@ -1131,7 +1131,7 @@ Relevant Issue Number (or NONE):
         messages: [
           {
             role: "system",
-            content: "You are an expert Git assistant. You identify the single most relevant issue number for a diff. Respond ONLY with the number or NONE."
+            content: 'You are an expert Git assistant. You identify ALL relevant issue numbers for a diff. Respond ONLY with comma-separated numbers (e.g., "101, 105") or NONE.'
           },
           {
             role: "user",
@@ -1161,11 +1161,18 @@ Relevant Issue Number (or NONE):
   if (responseText.toUpperCase().includes("NONE")) {
     return null;
   }
-  const issueNumber = parseInt(responseText.replace(/[^0-9]/g, ""), 10);
-  if (issues.some((i) => i.number === issueNumber)) {
-    return issueNumber;
+  const issueNumbers = [];
+  const parts = responseText.split(",");
+  for (const part of parts) {
+    const cleaned = part.trim().replace(/[^0-9]/g, "");
+    if (cleaned) {
+      const issueNumber = parseInt(cleaned, 10);
+      if (issues.some((i) => i.number === issueNumber)) {
+        issueNumbers.push(issueNumber);
+      }
+    }
   }
-  return null;
+  return issueNumbers.length > 0 ? issueNumbers : null;
 }
 
 // src/extension.ts
@@ -1237,7 +1244,184 @@ async function getRepoDiff(repoRoot) {
   return stdout;
 }
 function cleanCommitMessage(msg) {
-  return msg.replace(/^```[\s\S]*?\n/, "").replace(/```$/, "").trim();
+  return msg.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "").trim();
+}
+function getActiveModel(provider, config) {
+  const cfg = config || vscode3.workspace.getConfiguration("aiCommitGenerator");
+  const customModel = (cfg.get("customModel") || "").trim();
+  const configuredModel = cfg.get(`${provider}Model`);
+  if (configuredModel === "custom") {
+    if (customModel.length > 0) {
+      return customModel;
+    }
+    vscode3.window.showWarningMessage(
+      `AI Commit Generator: 'custom' selected for ${provider}, but 'customModel' is empty. Falling back to default.`
+    );
+  } else if (configuredModel) {
+    return configuredModel;
+  }
+  switch (provider) {
+    case "gemini":
+      return "gemini-3.1-flash-lite-preview";
+    case "openai":
+      return "gpt-4o-mini";
+    case "ollama":
+      return cfg.get("ollamaModel") || "gemma2:9b";
+    case "deepseek":
+      return "deepseek-chat";
+    case "openrouter":
+      return "qwen/qwen3-coder:free";
+    default:
+      return "gemini-3.1-flash-lite-preview";
+  }
+}
+async function showSelectModelQuickPick() {
+  const config = vscode3.workspace.getConfiguration("aiCommitGenerator");
+  const provider = config.get("provider") || "gemini";
+  const activeModel = getActiveModel(provider, config);
+  const providerTitle = provider.charAt(0).toUpperCase() + provider.slice(1);
+  const customModelsKeyMap = {
+    gemini: "customGeminiModels",
+    openai: "customOpenaiModels",
+    deepseek: "customDeepseekModels",
+    openrouter: "customOpenrouterModels"
+  };
+  const customModelsKey = customModelsKeyMap[provider] || "customGeminiModels";
+  const customModels = (config.get(customModelsKey) || []).map((m) => (m || "").trim()).filter((m) => m.length > 0);
+  const builtInMap = {
+    gemini: [
+      "gemini-2.0-flash",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
+      "gemini-3-flash-preview",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-3.1-flash-lite-preview"
+    ],
+    openai: ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
+    deepseek: ["deepseek-chat", "deepseek-coder"],
+    openrouter: [
+      "qwen/qwen3-coder:free",
+      "openai/gpt-oss-20b:free",
+      "nvidia/nemotron-nano-9b-v2:free",
+      "alibaba/tongyi-deepresearch-30b-a3b:free",
+      "amazon/nova-2-lite-v1:free",
+      "mistralai/devstral-2512:free",
+      "openai/gpt-oss-120b:free"
+    ],
+    ollama: ["gemma2:9b", "llama3", "mistral"]
+  };
+  const presets = builtInMap[provider] || [];
+  const items = [];
+  items.push({
+    label: `$(plus) Add New Custom Model...`,
+    description: `Add a new model identifier to ${providerTitle} list`,
+    action: "add"
+  });
+  if (customModels.length > 0) {
+    items.push({
+      label: "Custom Models",
+      kind: vscode3.QuickPickItemKind.Separator
+    });
+    for (const model of customModels) {
+      const isActive = model.toLowerCase() === activeModel.toLowerCase();
+      items.push({
+        label: isActive ? `$(check) ${model}` : `$(sparkle) ${model}`,
+        description: isActive ? "(Active Custom Model)" : "(Custom Model)",
+        action: "select",
+        modelName: model,
+        isCustom: true
+      });
+    }
+  }
+  if (presets.length > 0) {
+    items.push({
+      label: "Standard Presets",
+      kind: vscode3.QuickPickItemKind.Separator
+    });
+    for (const model of presets) {
+      const isActive = model.toLowerCase() === activeModel.toLowerCase();
+      items.push({
+        label: isActive ? `$(check) ${model}` : `$(symbol-event) ${model}`,
+        description: isActive ? "(Active Model)" : "",
+        action: "select",
+        modelName: model,
+        isCustom: false
+      });
+    }
+  }
+  if (customModels.length > 0) {
+    items.push({
+      label: "Manage",
+      kind: vscode3.QuickPickItemKind.Separator
+    });
+    items.push({
+      label: `$(trash) Remove a Custom Model...`,
+      description: `Delete a custom model from the ${providerTitle} list`,
+      action: "remove"
+    });
+  }
+  const selected = await vscode3.window.showQuickPick(items, {
+    placeHolder: `Select AI model for ${providerTitle} (Current: ${activeModel})`,
+    title: `AI Commit Generator: ${providerTitle} Models`
+  });
+  if (!selected) return;
+  if (selected.action === "add") {
+    const input = await vscode3.window.showInputBox({
+      title: `Add Custom ${providerTitle} Model`,
+      prompt: `Enter the model identifier (e.g. gemini-3.5-pro, gpt-4.5-preview)`,
+      placeHolder: "model-identifier",
+      validateInput: (val) => {
+        const trimmed = (val || "").trim();
+        if (!trimmed) return "Model identifier cannot be empty";
+        if (customModels.some((m) => m.toLowerCase() === trimmed.toLowerCase())) {
+          return "This model is already in your custom models list";
+        }
+        return null;
+      }
+    });
+    if (!input) return;
+    const newModel = input.trim();
+    const updatedCustom = [...customModels, newModel];
+    await config.update(customModelsKey, updatedCustom, vscode3.ConfigurationTarget.Global);
+    await config.update("customModel", newModel, vscode3.ConfigurationTarget.Global);
+    await config.update(`${provider}Model`, "custom", vscode3.ConfigurationTarget.Global);
+    vscode3.window.showInformationMessage(
+      `AI Commit Generator: Added and activated custom model '${newModel}' for ${providerTitle}.`
+    );
+  } else if (selected.action === "remove") {
+    const removePick = await vscode3.window.showQuickPick(
+      customModels.map((m) => ({ label: `$(trash) ${m}`, modelName: m })),
+      {
+        placeHolder: "Choose a custom model to remove",
+        title: `Remove Custom ${providerTitle} Model`
+      }
+    );
+    if (!removePick) return;
+    const toRemove = removePick.modelName;
+    const filtered = customModels.filter((m) => m.toLowerCase() !== toRemove.toLowerCase());
+    await config.update(customModelsKey, filtered, vscode3.ConfigurationTarget.Global);
+    const currentCustom = (config.get("customModel") || "").trim();
+    if (currentCustom.toLowerCase() === toRemove.toLowerCase()) {
+      await config.update("customModel", "", vscode3.ConfigurationTarget.Global);
+      const defaultPreset = presets[0] || "";
+      if (defaultPreset) {
+        await config.update(`${provider}Model`, defaultPreset, vscode3.ConfigurationTarget.Global);
+      }
+    }
+    vscode3.window.showInformationMessage(`AI Commit Generator: Removed custom model '${toRemove}'.`);
+  } else if (selected.action === "select" && selected.modelName) {
+    if (selected.isCustom) {
+      await config.update("customModel", selected.modelName, vscode3.ConfigurationTarget.Global);
+      await config.update(`${provider}Model`, "custom", vscode3.ConfigurationTarget.Global);
+    } else {
+      await config.update(`${provider}Model`, selected.modelName, vscode3.ConfigurationTarget.Global);
+    }
+    vscode3.window.showInformationMessage(
+      `AI Commit Generator: Switched active ${providerTitle} model to '${selected.modelName}'.`
+    );
+  }
 }
 async function generateCommitMessage(diff, issues, token) {
   const config = vscode3.workspace.getConfiguration("aiCommitGenerator");
@@ -1261,10 +1445,10 @@ Rules:
 - Detailed body explaining WHAT and WHY
 
 ISSUE LINKING:
-${issues.length > 0 ? `- The following issue was identified as highly relevant: #${issues[0].number}
-- If the changes DIRECTLY fix this issue, include "Closes #<ID>" in the body.
-- If the changes are just related to this issue, include "Relates to #<ID>".
-- If no issue truly matches, do not include any reference.` : "- No relevant issue identified. Do not include issue references."}
+${issues.length > 0 ? `- The following issues were identified as relevant: ${issues.map((i) => `#${i.number}`).join(", ")}
+- If the changes DIRECTLY fix an issue, include "Closes #<ID>" in the body.
+- If the changes are just related to an issue, include "Relates to #<ID>".
+- Include references for ALL identified issues as appropriate.` : "- No relevant issues identified. Do not include issue references."}
 
 Diff:
 ${diff}
@@ -1273,7 +1457,7 @@ Commit message:
 `;
   if (provider === "gemini") {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = config.get("geminiModel") || "gemini-3-flash-preview";
+    const modelName = getActiveModel("gemini", config);
     const model = genAI.getGenerativeModel({ model: modelName });
     if (token.isCancellationRequested) throw new vscode3.CancellationError();
     const result = await model.generateContent(prompt);
@@ -1283,7 +1467,7 @@ Commit message:
     if (token.isCancellationRequested) {
       throw new vscode3.CancellationError();
     }
-    const model = config.get("openaiModel") || "gpt-4o-mini";
+    const model = getActiveModel("openai", config);
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1320,6 +1504,82 @@ Commit message:
     }
     return cleanCommitMessage(content);
   }
+  if (provider === "ollama") {
+    if (token.isCancellationRequested) throw new vscode3.CancellationError();
+    const model = getActiveModel("ollama", config);
+    const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.3,
+          num_predict: 500
+        }
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Ollama error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    return cleanCommitMessage(data.response);
+  }
+  if (provider === "deepseek") {
+    if (token.isCancellationRequested) throw new vscode3.CancellationError();
+    const model = getActiveModel("deepseek", config);
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You write concise, semantic Git commit messages." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`DeepSeek error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    return cleanCommitMessage(data.choices?.[0]?.message?.content || "");
+  }
+  if (provider === "openrouter") {
+    if (token.isCancellationRequested) throw new vscode3.CancellationError();
+    const model = getActiveModel("openrouter", config);
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You write concise, semantic Git commit messages." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    return cleanCommitMessage(data.choices?.[0]?.message?.content || "");
+  }
   throw new Error(`Unsupported provider: ${provider}`);
 }
 function activate(context) {
@@ -1355,6 +1615,35 @@ function activate(context) {
       }
     )
   );
+  const modelStatusBarItem = vscode3.window.createStatusBarItem(vscode3.StatusBarAlignment.Right, 100);
+  modelStatusBarItem.command = "ai-commit-generator.selectModel";
+  const updateStatusBar = () => {
+    const cfg = vscode3.workspace.getConfiguration("aiCommitGenerator");
+    const p = cfg.get("provider") || "gemini";
+    const m = getActiveModel(p, cfg);
+    modelStatusBarItem.text = `$(sparkle) ${p}:${m}`;
+    modelStatusBarItem.tooltip = `Active AI Model: ${m} (${p})
+Click to select or add custom model`;
+    modelStatusBarItem.show();
+  };
+  updateStatusBar();
+  context.subscriptions.push(modelStatusBarItem);
+  context.subscriptions.push(
+    vscode3.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("aiCommitGenerator")) {
+        updateStatusBar();
+      }
+    })
+  );
+  context.subscriptions.push(
+    vscode3.commands.registerCommand(
+      "ai-commit-generator.selectModel",
+      async () => {
+        await showSelectModelQuickPick();
+        updateStatusBar();
+      }
+    )
+  );
   context.subscriptions.push(
     vscode3.commands.registerCommand(
       "ai-commit-generator.createIssueFromChanges",
@@ -1382,7 +1671,7 @@ function activate(context) {
           const includeIssueInCommit = config.get("includeIssueInCommit", true);
           let issues = [];
           let githubInfo;
-          let issueToLink;
+          let issuesToLink = [];
           const remoteUrl = await getRemoteUrl(repoRoot);
           if (remoteUrl) {
             githubInfo = parseGitHubUrl(remoteUrl);
@@ -1390,12 +1679,12 @@ function activate(context) {
           const cts = new vscode3.CancellationTokenSource();
           const cancellationToken = cts.token;
           if (githubInfo) {
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
-              const githubToken = config.get("issueTrackerToken");
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode3.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
-                outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                vscode3.window.showWarningMessage("GitHub authentication required to create issues.");
+                outputChannel.appendLine("\u26A0\uFE0F GitHub authentication missing. Skipping issue creation.");
                 return;
               }
               try {
@@ -1413,9 +1702,11 @@ function activate(context) {
                     const issueTitle = tempMessage.split("\n")[0].trim();
                     const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
                     classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    const projectContext = config.get("projectContext");
                     const issueLabels = Array.from(/* @__PURE__ */ new Set([
                       classification.type,
-                      ...classification.labels
+                      ...classification.labels,
+                      ...projectContext ? [projectContext] : []
                     ]));
                     const currentUser = await getCurrentGitHubUsername();
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
@@ -1429,7 +1720,7 @@ function activate(context) {
                     );
                     if (newIssue) {
                       outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `\u2713 Issue #${newIssue.number} created` });
                       await new Promise((resolve) => setTimeout(resolve, 400));
                       return newIssue;
@@ -1487,7 +1778,7 @@ function activate(context) {
           const includeIssueInCommit = config.get("includeIssueInCommit", true);
           let issues = [];
           let githubInfo;
-          let issueToLink;
+          let issuesToLink = [];
           if (issueTracker === "github") {
             const remoteUrl = await getRemoteUrl(repoRoot);
             if (remoteUrl) {
@@ -1506,20 +1797,20 @@ function activate(context) {
           if (includeIssueInCommit && githubInfo) {
             if (issues.length > 0) {
               outputChannel.appendLine("Checking relevance of open issues...");
-              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
-              if (relevantIssueNumber) {
-                issueToLink = issues.find((i) => i.number === relevantIssueNumber);
-                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
+              const relevantIssueNumbers = await findRelevantIssue(diff, issues, cancellationToken);
+              if (relevantIssueNumbers && relevantIssueNumbers.length > 0) {
+                issuesToLink = issues.filter((i) => relevantIssueNumbers.includes(i.number));
+                outputChannel.appendLine(`LLM identified relevant issues: ${issuesToLink.map((i) => `#${i.number}`).join(", ")}`);
               } else {
-                outputChannel.appendLine("LLM found no relevant open issue.");
+                outputChannel.appendLine("LLM found no relevant open issues.");
               }
             }
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine("Attempting to auto-create a new issue...");
-              const githubToken = config.get("issueTrackerToken");
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode3.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
-                outputChannel.appendLine("\u26A0\uFE0F GitHub token missing. Skipping issue creation.");
+                vscode3.window.showWarningMessage("GitHub authentication required to create issues.");
+                outputChannel.appendLine("\u26A0\uFE0F GitHub authentication missing. Skipping issue creation.");
                 setGeneratingState(false);
                 return;
               }
@@ -1538,21 +1829,25 @@ function activate(context) {
                     const issueTitle = tempMessage.split("\n")[0].trim();
                     const issueBody = tempMessage.split("\n").slice(2).join("\n").trim() || "Details from commit diff.";
                     classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    const projectContext = config.get("projectContext");
                     const issueLabels = Array.from(/* @__PURE__ */ new Set([
                       classification.type,
-                      ...classification.labels
+                      ...classification.labels,
+                      ...projectContext ? [projectContext] : []
                     ]));
+                    const currentUser = await getCurrentGitHubUsername();
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
                     const newIssue = await createGitHubIssue(
                       githubInfo.owner,
                       githubInfo.repo,
                       issueTitle,
                       issueBody,
-                      issueLabels
+                      issueLabels,
+                      currentUser
                     );
                     if (newIssue) {
                       outputChannel.appendLine(`\u2713 Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `\u2713 Issue #${newIssue.number} created` });
                       await new Promise((resolve) => setTimeout(resolve, 400));
                       return newIssue;
@@ -1576,7 +1871,7 @@ function activate(context) {
               outputChannel.appendLine("\u26A0\uFE0F Cannot create issue: GitHub repository info unavailable");
             }
           }
-          const issuesForLLM = issueToLink ? [issueToLink] : [];
+          const issuesForLLM = issuesToLink.length > 0 ? issuesToLink : [];
           let message = await vscode3.window.withProgress(
             {
               location: vscode3.ProgressLocation.Notification,
@@ -1589,8 +1884,11 @@ function activate(context) {
             }
           );
           if (sourceControl) {
-            if (issueToLink && issueToLink.number) {
-              message = message + "\n #" + issueToLink.number;
+            if (issuesToLink.length > 0) {
+              const issueRefs = issuesToLink.filter((i) => !message.includes(`#${i.number}`)).map((i) => ` #${i.number}`).join("");
+              if (issueRefs) {
+                message = message + issueRefs;
+              }
             }
             sourceControl.inputBox.value = message;
           }
@@ -1614,7 +1912,7 @@ async function createGitHubIssue(owner, repo, issueTitle, issueBody, issueLabels
   const config = vscode3.workspace.getConfiguration("aiCommitGenerator");
   const githubToken = await resolveGitHubToken();
   if (!githubToken) {
-    vscode3.window.showWarningMessage("GitHub token not configured. Cannot create issue.");
+    vscode3.window.showWarningMessage("GitHub authentication required. Please sign in or provide a token.");
     return void 0;
   }
   const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
@@ -1698,11 +1996,11 @@ ${diff}
   if (provider === "gemini") {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: config.get("geminiModel") || "gemini-3-flash-preview"
+      model: getActiveModel("gemini", config)
     });
     const result = await model.generateContent(prompt);
     text = result.response.text();
-  } else {
+  } else if (provider === "openai") {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1710,7 +2008,61 @@ ${diff}
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: config.get("openaiModel") || "gpt-4o-mini",
+        model: getActiveModel("openai", config),
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: "You classify code changes." },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    const data = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  } else if (provider === "ollama") {
+    const model = getActiveModel("ollama", config);
+    const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: { temperature: 0.1 }
+      })
+    });
+    if (!response.ok) throw new Error(`Ollama classification error: ${response.status}`);
+    const data = await response.json();
+    text = data.response;
+  } else if (provider === "deepseek") {
+    const model = getActiveModel("deepseek", config);
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: "You classify code changes." },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    const data = await response.json();
+    text = data.choices?.[0]?.message?.content;
+  } else if (provider === "openrouter") {
+    const model = getActiveModel("openrouter", config);
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
         temperature: 0.1,
         messages: [
           { role: "system", content: "You classify code changes." },
