@@ -98,3 +98,32 @@ export function validateIssueRelations(
 
   return errors;
 }
+
+export function sanitizeCommitMessage(message: string): string {
+  if (!message || message.trim().length === 0) {
+    return 'chore: update project files';
+  }
+
+  let cleaned = message.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+  cleaned = cleaned.replace(/^(Here is (the|a|your) commit message:?|Commit message:?|Suggested commit:?)\s*/i, '').trim();
+
+  const lines = cleaned.split('\n');
+  let subject = lines[0].trim();
+
+  const typeMatch = subject.match(/^(feat|fix|refactor|chore|docs|test|perf|build|ci|style|revert)(\([a-zA-Z0-9_\-./ ]+\))?: /i);
+  if (!typeMatch) {
+    subject = `chore: ${subject}`;
+  }
+
+  if (subject.endsWith('.')) {
+    subject = subject.slice(0, -1).trim();
+  }
+
+  if (subject.length > 72) {
+    subject = subject.slice(0, 72).trim();
+  }
+
+  lines[0] = subject;
+  return lines.join('\n');
+}
+

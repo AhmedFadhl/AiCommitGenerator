@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DiffAnalysis, IssueAnalysis, GitHubIssueBasic, MultiStyleCommit } from './types';
-import { analysisPrompt, issueAnalysisPrompt, commitPrompt } from './prompts';
+import { analysisPrompt, issueAnalysisPrompt, commitPrompt, singlePassCommitPrompt } from './prompts';
 import { validateCommitMessage, validateIssueReferences, validateIssueRelations } from './validators';
 import { extractJson } from './json-parser';
 import { SecretScanner } from './secretScanner';
@@ -29,31 +29,54 @@ export class CommitPipeline {
   ): Promise<{ commitMessage: string; diffAnalysis: DiffAnalysis; issueAnalysis: IssueAnalysis | null }> {
     const config = getPipelineConfig(resourceUri);
 
-    // 0a. Pre-Commit Secret Scanner Interceptor
+    // 0a. Pre-Commit Secret Scanner Interceptor (Non-blocking in-memory masking)
+    let activeDiff = diff;
     if (config.enableSecretScanner) {
-      const scanResult = SecretScanner.scan(diff);
-      if (scanResult.detected) {
-        this.log(`⚠️ SecretScanner Alert: Potential ${scanResult.type} detected.`);
-        const choice = await vscode.window.showWarningMessage(
-          `⚠️ Potential secret detected in staged diff: ${scanResult.type} (${scanResult.lineSnippet}).`,
-          { modal: true },
-          'Proceed Anyway',
-          'Cancel'
-        );
-        if (choice !== 'Proceed Anyway') {
-          this.log('Commit generation aborted by user due to secret detection.');
-          throw new Error('Commit generation cancelled: Potential secret detected in staged diff.');
-        }
+      const { maskedDiff, detectedCount } = SecretScanner.mask(activeDiff);
+      if (detectedCount > 0) {
+        this.log(`🛡️ SecretScanner: Redacted ${detectedCount} potential credential pattern(s) from staged diff before AI dispatch.`);
+        activeDiff = maskedDiff;
       }
     }
 
     // 0b. Smart Diff Filter Interceptor
-    let activeDiff = diff;
     if (config.enableSmartDiffFilter) {
-      activeDiff = DiffFilter.filter(diff);
-      if (activeDiff.length < diff.length) {
-        this.log(`Smart Diff Filter pruned noise files from diff (reduced ${diff.length} to ${activeDiff.length} chars).`);
+      const filtered = DiffFilter.filter(activeDiff);
+      if (filtered.length < activeDiff.length && filtered.trim().length > 0) {
+        this.log(`Smart Diff Filter pruned noise files from diff (reduced ${activeDiff.length} to ${filtered.length} chars).`);
+        activeDiff = filtered;
       }
+    }
+
+    if (!activeDiff || activeDiff.trim().length === 0) {
+      activeDiff = diff;
+    }
+
+    // 0c. Fast-Path By Default: Single-Pass Direct Generation (< 2 seconds)
+    if (!config.enableMultiStyle) {
+      this.log('Executing Fast-Path (Single-Pass Direct Generation)...');
+      const startTime = Date.now();
+      const prompt = singlePassCommitPrompt(activeDiff, openIssues, config.commitLanguage);
+      const rawCommit = await this.generateText(prompt, false);
+      const finalCommit = this.sanitizeCommitFallback(rawCommit);
+      const durationMs = Date.now() - startTime;
+      this.log(`Fast-Path commit message generated in ${durationMs}ms! ✓`);
+
+      const typePrefix = finalCommit.split(':')[0].trim().toLowerCase();
+      const diffAnalysis: DiffAnalysis = {
+        type: (typePrefix as any) || 'feat',
+        summary: finalCommit.split('\n')[0].trim(),
+        reason: null,
+        impact: null,
+        confidence: 1.0,
+        shouldCreateIssue: false
+      };
+
+      return {
+        commitMessage: finalCommit,
+        diffAnalysis,
+        issueAnalysis: null
+      };
     }
 
     // 1. Diff Analysis

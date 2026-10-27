@@ -196,3 +196,47 @@ DIFF:
 ${diff}
 `;
 };
+
+export const singlePassCommitPrompt = (
+  diff: string,
+  issues: GitHubIssueBasic[] = [],
+  language: CommitLanguage = "en"
+) => {
+  const languageInstruction = 
+    language === 'ar' ? 'LANGUAGE: Write the commit message description and body strictly in clear, professional Arabic (مثال: feat: إضافة ميزة تسجيل الدخول).' :
+    language === 'bilingual' ? 'LANGUAGE: Write the commit subject in English, followed by an Arabic explanation in the body.' :
+    'LANGUAGE: Write the commit message in English.';
+
+  const issueContext = issues.length > 0
+    ? `\nOPEN ISSUES:\n${issues.map(i => `#${i.number}: ${i.title}`).join('\n')}\nIf the diff directly addresses or resolves any of the above issues, append 'Closes #<number>' or 'Relates to #<number>' at the very end of the message.\n`
+    : '';
+
+  return `
+You are an expert Git commit message writer.
+
+Analyze the provided git diff and generate ONE semantic, conventional Git commit message directly.
+
+${languageInstruction}
+
+FORMAT:
+<type>: <subject>
+
+<body>
+
+<issue references if applicable>
+
+RULES:
+- SUBJECT: Start with exactly one of: feat:, fix:, refactor:, chore:, docs:, test:, perf:, build:, ci:, style:
+- Use imperative mood, concise, under 72 characters.
+- Do NOT end the subject line with a period.
+- BODY: Concise explanation of WHAT and WHY.
+${issueContext}
+OUTPUT RULES:
+- Return ONLY the commit message itself.
+- Do NOT output JSON, markdown fences, commentary, or preambles.
+
+DIFF:
+${diff}
+`.trim();
+};
+

@@ -459,9 +459,10 @@ export function activate(context: vscode.ExtensionContext) {
     const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
     const p = cfg.get<string>('provider') || 'gemini';
     const m = getActiveModel(p, cfg);
-    const googleAuthMode = cfg.get<boolean>('googleAuthMode', false);
+    const rawAuthMode = cfg.get<string>('googleAuthMode', 'ApiKey');
+    const isGoogleAccountAuth = rawAuthMode === 'Account';
 
-    if (googleAuthMode) {
+    if (isGoogleAccountAuth) {
       const email = await GoogleAuthService.getInstance().getStoredEmail();
       if (email) {
         modelStatusBarItem.text = `$(sparkle) ${p}:${m} ($(account) ${email})`;
@@ -508,7 +509,8 @@ export function activate(context: vscode.ExtensionContext) {
       'ai-commit-generator.configureFeatures',
       async () => {
         const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
-        const googleAuthMode = cfg.get<boolean>('googleAuthMode', false);
+        const rawAuthMode = cfg.get<string>('googleAuthMode', 'ApiKey');
+        const isGoogleAccountAuth = rawAuthMode === 'Account';
         const enableMultiStyle = cfg.get<boolean>('enableMultiStyle', false);
         const enableSecretScanner = cfg.get<boolean>('enableSecretScanner', true);
         const enableSmartDiffFilter = cfg.get<boolean>('enableSmartDiffFilter', true);
@@ -519,15 +521,16 @@ export function activate(context: vscode.ExtensionContext) {
 
         const items: (vscode.QuickPickItem & { action: () => Promise<void> })[] = [
           {
-            label: `${googleAuthMode ? '$(check)' : '$(circle-slash)'} Google AI Studio Account Auth`,
-            description: googleAuthMode ? `Enabled (${email || 'Signed In'})` : 'Disabled (Using API Key)',
+            label: `${isGoogleAccountAuth ? '$(check)' : '$(circle-slash)'} Google AI Studio Account Auth`,
+            description: isGoogleAccountAuth ? `Enabled (${email || 'Signed In'})` : 'Disabled (Using API Key)',
             detail: 'Use Google OAuth 2.0 PKCE for 1,500 free requests/day without manual API keys',
             action: async () => {
-              if (!googleAuthMode && !email) {
+              if (!isGoogleAccountAuth && !email) {
                 await vscode.commands.executeCommand('ai-commit-generator.signInWithGoogle');
               } else {
-                await cfg.update('googleAuthMode', !googleAuthMode, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage(`Google AI Studio Auth Mode: ${!googleAuthMode ? 'Enabled' : 'Disabled'}`);
+                const nextMode = isGoogleAccountAuth ? 'ApiKey' : 'Account';
+                await cfg.update('googleAuthMode', nextMode, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Google AI Studio Auth Mode: ${nextMode === 'Account' ? 'Enabled (OAuth)' : 'Disabled (API Key)'}`);
                 await updateStatusBar();
               }
             }
@@ -618,7 +621,7 @@ export function activate(context: vscode.ExtensionContext) {
           if (success) {
             const email = await GoogleAuthService.getInstance().getStoredEmail();
             const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
-            await cfg.update('googleAuthMode', true, vscode.ConfigurationTarget.Global);
+            await cfg.update('googleAuthMode', 'Account', vscode.ConfigurationTarget.Global);
             vscode.window.showInformationMessage(`Successfully signed in to Google AI Studio${email ? ` as ${email}` : ''}! 🎉 (1,500 requests/day active)`);
             await updateStatusBar();
           }
@@ -636,7 +639,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
           await GoogleAuthService.getInstance().logout();
           const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
-          await cfg.update('googleAuthMode', false, vscode.ConfigurationTarget.Global);
+          await cfg.update('googleAuthMode', 'ApiKey', vscode.ConfigurationTarget.Global);
           vscode.window.showInformationMessage('Signed out of Google account. Reverted to API Key mode.');
           await updateStatusBar();
         } catch (err: any) {

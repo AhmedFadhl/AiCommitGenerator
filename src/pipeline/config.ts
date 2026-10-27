@@ -23,10 +23,10 @@ export function getPipelineConfig(resourceUri?: vscode.Uri): PipelineConfig {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator', resourceUri);
 
   // Defensive parsing and normalization
-  const rawAuthMode = config.get<string>('googleAuthMode', 'Account');
-  const googleAuthMode: GoogleAuthMode = rawAuthMode === 'ApiKey' ? 'ApiKey' : 'Account';
+  const rawAuthMode = config.get<string>('googleAuthMode', 'ApiKey');
+  const googleAuthMode: GoogleAuthMode = rawAuthMode === 'Account' ? 'Account' : 'ApiKey';
 
-  const enableMultiStyle = config.get<boolean>('enableMultiStyle', true) !== false;
+  const enableMultiStyle = config.get<boolean>('enableMultiStyle', false) === true;
   const enableSecretScanner = config.get<boolean>('enableSecretScanner', true) !== false;
   const enableSmartDiffFilter = config.get<boolean>('enableSmartDiffFilter', true) !== false;
 

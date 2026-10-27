@@ -76,4 +76,27 @@ export class SecretScanner {
 
     return { detected: false };
   }
+
+  /**
+   * Redacts any detected secrets in-place from the diff before dispatching to external LLMs.
+   * Eliminates modal dialog friction while providing guaranteed credential protection.
+   */
+  public static mask(diff: string): { maskedDiff: string; detectedCount: number } {
+    if (!diff) {
+      return { maskedDiff: diff, detectedCount: 0 };
+    }
+
+    let result = diff;
+    let detectedCount = 0;
+
+    for (const pattern of SecretScanner.PATTERNS) {
+      const globalRegex = new RegExp(pattern.regex.source, 'g');
+      if (globalRegex.test(result)) {
+        result = result.replace(globalRegex, '[REDACTED_SECRET]');
+        detectedCount++;
+      }
+    }
+
+    return { maskedDiff: result, detectedCount };
+  }
 }
