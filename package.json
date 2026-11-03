@@ -2,7 +2,7 @@
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
   "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
@@ -305,6 +305,16 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically exclude lockfiles (package-lock.json, yarn.lock) and compiled assets from AI diff prompts to conserve tokens."
+        },
+        "aiCommitGenerator.autoDeployMergeMethod": {
+          "type": "string",
+          "enum": [
+            "squash",
+            "merge",
+            "rebase"
+          ],
+          "default": "merge",
+          "description": "Preferred GitHub merge strategy for Auto-Deploy (squash, merge, or rebase)."
         },
         "aiCommitGenerator.commitLanguage": {
           "type": "string",

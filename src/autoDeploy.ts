@@ -1,11 +1,41 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
 import { resolveGitHubToken, getRemoteUrl, parseGitHubUrl } from './extension';
-import { createPullRequest, checkPullRequestStatus, mergePullRequest } from './githubApi';
+import { 
+  createPullRequest, 
+  findExistingPullRequest, 
+  checkPullRequestStatus, 
+  checkPullRequestMergeable, 
+  mergePullRequest 
+} from './githubApi';
 import { invokeProvider } from './pipeline/llm-client';
 
 const execAsync = promisify(exec);
+
+async function validatePreFlightGitState(repoRoot: string): Promise<{ valid: boolean; currentBranch: string; error?: string }> {
+  try {
+    const { stdout: branchOut } = await execAsync('git branch --show-current', { cwd: repoRoot });
+    const currentBranch = branchOut.trim();
+    if (!currentBranch) {
+      return { valid: false, currentBranch: '', error: 'Detached HEAD detected. Please checkout or create a named branch before Auto-Deploy.' };
+    }
+
+    const gitDir = path.join(repoRoot, '.git');
+    if (fs.existsSync(path.join(gitDir, 'MERGE_HEAD'))) {
+      return { valid: false, currentBranch, error: 'A Git merge is currently in progress. Please complete or abort it before Auto-Deploy.' };
+    }
+    if (fs.existsSync(path.join(gitDir, 'rebase-merge')) || fs.existsSync(path.join(gitDir, 'rebase-apply'))) {
+      return { valid: false, currentBranch, error: 'A Git rebase is currently in progress. Please complete or abort it before Auto-Deploy.' };
+    }
+
+    return { valid: true, currentBranch };
+  } catch (err: any) {
+    return { valid: false, currentBranch: '', error: `Git inspection error: ${err.message}` };
+  }
+}
 
 export function registerAutoDeployCommand(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel) {
   context.subscriptions.push(
@@ -28,7 +58,28 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
 
           const repoRoot = sourceControl.rootUri.fsPath;
 
-          // 1. Get repo info
+          // 1. Validate pre-flight Git state
+          const gitState = await validatePreFlightGitState(repoRoot);
+          if (!gitState.valid) {
+            vscode.window.showErrorMessage(`Auto-Deploy: ${gitState.error}`);
+            outputChannel.appendLine(`Auto-Deploy aborted: ${gitState.error}`);
+            return;
+          }
+          const currentBranch = gitState.currentBranch;
+
+          // 2. Pre-flight sync: Silent git fetch origin to ensure remote tracking refs are fresh
+          outputChannel.appendLine('Fetching latest remote tracking branches...');
+          try {
+            await execAsync('git fetch origin', {
+              cwd: repoRoot,
+              timeout: 15000,
+              env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+            });
+          } catch (fetchErr: any) {
+            outputChannel.appendLine(`Notice: git fetch origin returned: ${fetchErr.message}`);
+          }
+
+          // 3. Get repo info
           const remoteUrl = await getRemoteUrl(repoRoot);
           if (!remoteUrl) {
              throw new Error('No remote URL found.');
@@ -38,17 +89,10 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
              throw new Error('Could not parse GitHub repo information.');
           }
 
-          // 2. Get branches
-          const { stdout: currentBranchOut } = await execAsync('git branch --show-current', { cwd: repoRoot });
-          const currentBranch = currentBranchOut.trim();
-
-          if (!currentBranch) {
-            throw new Error('Could not determine current branch.');
-          }
-
+          // 4. Get remote branches
           const { stdout: allBranchesOut } = await execAsync('git branch -a', { cwd: repoRoot });
           const remoteBranches = Array.from(new Set(allBranchesOut.split('\n')
-            .map(b => b.trim().replace(/^\\*\s*/, '').replace('remotes/origin/', '').replace('origin/', ''))
+            .map(b => b.trim().replace(/^\*\s*/, '').replace('remotes/origin/', '').replace('origin/', ''))
             .filter(b => b && !b.includes('HEAD') && b !== currentBranch)));
 
           // Put 'prod', 'main', 'master' at the top
@@ -71,6 +115,48 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
              return;
           }
 
+          // Check divergence (Ahead/Behind)
+          try {
+            const { stdout: revCountOut } = await execAsync(
+              `git rev-list --left-right --count origin/${targetBranch}...${currentBranch}`,
+              { cwd: repoRoot }
+            );
+            const parts = revCountOut.trim().split(/\s+/);
+            if (parts.length >= 2) {
+              const behind = parseInt(parts[0], 10) || 0;
+              const ahead = parseInt(parts[1], 10) || 0;
+              outputChannel.appendLine(`Branch Status: ${ahead} commit(s) ahead, ${behind} commit(s) behind origin/${targetBranch}.`);
+
+              if (behind > 0) {
+                const choice = await vscode.window.showWarningMessage(
+                  `Branch '${currentBranch}' is ${behind} commit(s) behind 'origin/${targetBranch}'. Merging target branch first is recommended to avoid conflicts.`,
+                  'Merge Target Branch',
+                  'Deploy Anyway',
+                  'Cancel'
+                );
+
+                if (choice === 'Cancel' || !choice) {
+                  outputChannel.appendLine('Auto-Deploy cancelled by user due to branch divergence.');
+                  return;
+                }
+
+                if (choice === 'Merge Target Branch') {
+                  outputChannel.appendLine(`Merging origin/${targetBranch} into ${currentBranch}...`);
+                  try {
+                    await execAsync(`git merge origin/${targetBranch} -m "chore: sync ${targetBranch} into ${currentBranch} before deploy"`, { cwd: repoRoot });
+                    outputChannel.appendLine(`✓ Successfully merged origin/${targetBranch} into ${currentBranch}.`);
+                  } catch (mergeErr: any) {
+                    outputChannel.appendLine(`❌ Merge conflict occurred locally: ${mergeErr.message}`);
+                    vscode.window.showErrorMessage(`Merge Conflict: Conflicts occurred while merging origin/${targetBranch} into ${currentBranch}. Please resolve them locally first.`);
+                    return;
+                  }
+                }
+              }
+            }
+          } catch (e: any) {
+            // Non-fatal divergence check
+          }
+
           if (!githubToken) throw new Error('No GitHub token available.');
 
           await vscode.window.withProgress(
@@ -81,36 +167,50 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
             },
             async (progress, token) => {
               
-              // 3. Push current branch using default origin (respects user's SSH/Git credentials)
+              // 5. Push current branch using default origin (respects user's SSH/Git credentials)
               progress.report({ message: `Pushing ${currentBranch} to remote...` });
               await execAsync(`git push origin ${currentBranch}:${currentBranch}`, { 
                 cwd: repoRoot,
                 env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
               });
 
-              // 4. Generate PR Message
-              progress.report({ message: `Generating PR message via AI...` });
-              // Get diff between target and current (with increased maxBuffer)
-              let prDiff = '';
-              try {
-                const { stdout } = await execAsync(`git diff origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot, maxBuffer: 5 * 1024 * 1024 });
-                prDiff = stdout;
-                // If diff is massive (e.g. > 100KB), it will exceed LLM context. Use --stat instead.
-                if (prDiff.length > 100000) {
-                   const { stdout: statOut } = await execAsync(`git diff --stat origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
-                   prDiff = statOut;
-                }
-              } catch (e: any) {
-                // If it STILL exceeds maxBuffer (extremely large), fallback to names only
-                const { stdout } = await execAsync(`git diff --name-status origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
-                prDiff = stdout;
-              }
-              
-              if (!prDiff.trim()) {
-                 throw new Error(`No differences found between ${targetBranch} and ${currentBranch}.`);
-              }
+              // 6. Check for existing open PR or Create PR
+              progress.report({ message: `Checking for existing Pull Request to ${targetBranch}...` });
+              let pr = await findExistingPullRequest(
+                githubInfo.owner,
+                githubInfo.repo,
+                currentBranch,
+                targetBranch,
+                githubToken
+              );
 
-              const prompt = `You are a developer creating a Pull Request.
+              if (pr) {
+                outputChannel.appendLine(`✓ Reusing existing open PR #${pr.number}: ${pr.html_url}`);
+              } else {
+                // Generate PR Message
+                progress.report({ message: `Generating PR message via AI...` });
+                let prDiff = '';
+                try {
+                  const { stdout } = await execAsync(`git diff origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot, maxBuffer: 5 * 1024 * 1024 });
+                  prDiff = stdout;
+                  if (prDiff.length > 100000) {
+                     const { stdout: statOut } = await execAsync(`git diff --stat origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
+                     prDiff = statOut;
+                  }
+                } catch (e: any) {
+                  const { stdout } = await execAsync(`git diff --name-status origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
+                  prDiff = stdout;
+                }
+                
+                if (!prDiff.trim()) {
+                   throw new Error(`No differences found between ${targetBranch} and ${currentBranch}.`);
+                }
+
+                let issueTitle = `Deploy ${currentBranch} -> ${targetBranch}`;
+                let issueBody = 'Auto-generated PR from AI Commit Generator.';
+
+                try {
+                  const prompt = `You are a developer creating a Pull Request.
 Below are the changes between the target branch (${targetBranch}) and the current branch (${currentBranch}).
 Write a concise Pull Request Title on the first line.
 Leave the second line blank.
@@ -119,26 +219,64 @@ Write a concise description of the changes (bullet points are fine) starting fro
 Changes:
 ${prDiff}`;
 
-              const tempMessage = await invokeProvider(prompt, token, false);
-              let issueTitle = tempMessage.split('\n')[0].trim();
-              let issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Auto-generated PR from AI Commit Generator.';
+                  const tempMessage = await invokeProvider(prompt, token, false);
+                  if (tempMessage && tempMessage.trim()) {
+                    issueTitle = tempMessage.split('\n')[0].trim() || issueTitle;
+                    issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || issueBody;
+                  }
+                } catch (aiErr: any) {
+                  outputChannel.appendLine(`Notice: AI PR message generation skipped (${aiErr.message}), using fallback title.`);
+                }
 
-              // 5. Create PR
-              progress.report({ message: `Creating Pull Request to ${targetBranch}...` });
-              const pr = await createPullRequest(
+                // Create PR
+                progress.report({ message: `Creating Pull Request to ${targetBranch}...` });
+                pr = await createPullRequest(
+                  githubInfo.owner,
+                  githubInfo.repo,
+                  issueTitle,
+                  issueBody,
+                  currentBranch,
+                  targetBranch,
+                  githubToken
+                );
+                outputChannel.appendLine(`✓ Created PR #${pr.number}: ${pr.html_url}`);
+              }
+
+              // 7. Asynchronous PR Mergeability Guard
+              progress.report({ message: `Verifying PR #${pr.number} mergeability...` });
+              const prMergeable = await checkPullRequestMergeable(
                 githubInfo.owner,
                 githubInfo.repo,
-                issueTitle,
-                issueBody,
-                currentBranch,
-                targetBranch,
-                githubToken
+                pr.number,
+                githubToken,
+                10,
+                2000
               );
 
-              outputChannel.appendLine(`✓ Created PR #${pr.number}: ${pr.html_url}`);
+              outputChannel.appendLine(`[PR #${pr.number}] Mergeable Status: ${prMergeable.mergeable} (state: ${prMergeable.mergeableState})`);
 
-              // 6. Poll CI/CD Checks
-              progress.report({ message: `PR #${pr.number} created. Waiting for CI/CD checks...` });
+              if (prMergeable.mergeable === false || prMergeable.mergeableState === 'dirty') {
+                outputChannel.appendLine(`❌ Auto-Deploy Aborted: PR #${pr.number} has merge conflicts with ${targetBranch}.`);
+                const action = await vscode.window.showWarningMessage(
+                  `Auto-Deploy Conflict: PR #${pr.number} has merge conflicts with ${targetBranch} on GitHub.`,
+                  'Sync & Merge Locally',
+                  'Open PR on GitHub'
+                );
+                if (action === 'Open PR on GitHub') {
+                  vscode.env.openExternal(vscode.Uri.parse(pr.html_url));
+                } else if (action === 'Sync & Merge Locally') {
+                  try {
+                    await execAsync(`git merge origin/${targetBranch}`, { cwd: repoRoot });
+                    vscode.window.showInformationMessage(`Merged origin/${targetBranch}. Please resolve any file conflicts in VS Code, commit, and re-run Auto-Deploy.`);
+                  } catch (syncErr: any) {
+                    vscode.window.showWarningMessage(`Conflict detected locally. Please resolve the conflicting files in VS Code, commit, and re-run Auto-Deploy.`);
+                  }
+                }
+                return;
+              }
+
+              // 8. Poll CI/CD Checks
+              progress.report({ message: `PR #${pr.number} verified. Waiting for CI/CD checks...` });
               let status = 'pending';
               while (status === 'pending') {
                  if (token.isCancellationRequested) {
@@ -155,10 +293,22 @@ ${prDiff}`;
                  throw new Error(`CI/CD Checks failed for PR #${pr.number}. Merge aborted.`);
               }
 
-              // 7. Auto-Merge
-              progress.report({ message: `CI/CD passed! Merging PR #${pr.number}...` });
-              await mergePullRequest(githubInfo.owner, githubInfo.repo, pr.number, githubToken);
-              outputChannel.appendLine(`✓ Successfully merged PR #${pr.number}!`);
+              // 9. Auto-Merge
+              const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+              const mergeMethod = config.get<'squash' | 'merge' | 'rebase'>('autoDeployMergeMethod', 'squash');
+              progress.report({ message: `CI/CD passed! Merging PR #${pr.number} (${mergeMethod})...` });
+              await mergePullRequest(githubInfo.owner, githubInfo.repo, pr.number, githubToken, mergeMethod);
+              outputChannel.appendLine(`✓ Successfully merged PR #${pr.number} via ${mergeMethod}!`);
+
+              // 10. Post-Merge Sync
+              try {
+                await execAsync('git fetch origin', {
+                  cwd: repoRoot,
+                  timeout: 15000,
+                  env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+                });
+              } catch (_) {}
+
               vscode.window.showInformationMessage(`🚀 Auto-Deploy successful! PR #${pr.number} merged into ${targetBranch}.`);
             }
           );
