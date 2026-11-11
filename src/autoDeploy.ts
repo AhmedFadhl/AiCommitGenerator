@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveGitHubToken, getRemoteUrl, parseGitHubUrl } from './extension';
+import { resolveGitToken, getRemoteUrl, parseGitRemoteUrl, GitRemoteInfo } from './extension';
 import { 
   createPullRequest, 
   findExistingPullRequest, 
@@ -42,15 +42,8 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
     vscode.commands.registerCommand(
       'ai-commit-generator.createAndMergePR',
       async (sourceControl?: vscode.SourceControl) => {
-        outputChannel.appendLine('--- Auto-Deploy PR Triggered ---');
+        outputChannel.appendLine('--- Auto-Deploy PR/MR Triggered ---');
         try {
-          const githubToken = await resolveGitHubToken();
-          if (!githubToken) {
-            vscode.window.showWarningMessage('GitHub authentication required for Auto-Deploy. Please login first.');
-            outputChannel.appendLine('Auto-Deploy aborted: No GitHub token.');
-            return;
-          }
-
           if (!sourceControl || !sourceControl.rootUri) {
             vscode.window.showInformationMessage('No repository detected');
             return;
@@ -79,17 +72,35 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
             outputChannel.appendLine(`Notice: git fetch origin returned: ${fetchErr.message}`);
           }
 
-          // 3. Get repo info
+          // 3. Get repo info & detect provider (GitHub, GitLab, Gitea, GHES)
           const remoteUrl = await getRemoteUrl(repoRoot);
           if (!remoteUrl) {
-             throw new Error('No remote URL found.');
+            throw new Error('No remote URL found.');
           }
-          const githubInfo = parseGitHubUrl(remoteUrl);
-          if (!githubInfo) {
-             throw new Error('Could not parse GitHub repo information.');
+          const gitInfo = parseGitRemoteUrl(remoteUrl);
+          if (!gitInfo) {
+            throw new Error('Could not parse Git repository information from remote URL.');
           }
 
-          // 4. Get remote branches
+          const isGitLab = gitInfo.provider === 'gitlab';
+          const termPR = isGitLab ? 'MR' : 'PR';
+          const termPullRequest = isGitLab ? 'Merge Request' : 'Pull Request';
+
+          outputChannel.appendLine(`Detected Git Provider: ${gitInfo.provider} (Host: ${gitInfo.host}, Repo: ${gitInfo.fullPath})`);
+
+          // 4. Resolve Auth Token
+          const gitToken = await resolveGitToken(gitInfo);
+          if (!gitToken) {
+            if (gitInfo.isGitHub) {
+              vscode.window.showWarningMessage('GitHub authentication required for Auto-Deploy. Please login first.');
+            } else {
+              vscode.window.showWarningMessage(`Access token required for ${gitInfo.provider}. Please configure 'aiCommitGenerator.gitToken' in Settings.`);
+            }
+            outputChannel.appendLine(`Auto-Deploy aborted: No access token for ${gitInfo.provider}.`);
+            return;
+          }
+
+          // 5. Get remote branches
           const { stdout: allBranchesOut } = await execAsync('git branch -a', { cwd: repoRoot });
           const remoteBranches = Array.from(new Set(allBranchesOut.split('\n')
             .map(b => b.trim().replace(/^\*\s*/, '').replace('remotes/origin/', '').replace('origin/', ''))
@@ -97,13 +108,13 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
 
           // Put 'prod', 'main', 'master' at the top
           remoteBranches.sort((a, b) => {
-             const prio = ['prod', 'main', 'master'];
-             const aIndex = prio.indexOf(a);
-             const bIndex = prio.indexOf(b);
-             if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-             if (aIndex !== -1) return -1;
-             if (bIndex !== -1) return 1;
-             return a.localeCompare(b);
+            const prio = ['prod', 'main', 'master'];
+            const aIndex = prio.indexOf(a);
+            const bIndex = prio.indexOf(b);
+            if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+            if (aIndex !== -1) return -1;
+            if (bIndex !== -1) return 1;
+            return a.localeCompare(b);
           });
 
           const targetBranch = await vscode.window.showQuickPick(remoteBranches, {
@@ -111,11 +122,11 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
           });
 
           if (!targetBranch) {
-             vscode.window.showInformationMessage('Auto-Deploy cancelled.');
-             return;
+            vscode.window.showInformationMessage('Auto-Deploy cancelled.');
+            return;
           }
 
-          // Check divergence (Ahead/Behind)
+          // 6. Check divergence (Ahead/Behind)
           try {
             const { stdout: revCountOut } = await execAsync(
               `git rev-list --left-right --count origin/${targetBranch}...${currentBranch}`,
@@ -128,27 +139,39 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
               outputChannel.appendLine(`Branch Status: ${ahead} commit(s) ahead, ${behind} commit(s) behind origin/${targetBranch}.`);
 
               if (behind > 0) {
-                const choice = await vscode.window.showWarningMessage(
-                  `Branch '${currentBranch}' is ${behind} commit(s) behind 'origin/${targetBranch}'. Merging target branch first is recommended to avoid conflicts.`,
-                  'Merge Target Branch',
-                  'Deploy Anyway',
-                  'Cancel'
+                // Check if those behind commits are actual unique code changes (exclude PR merge commits)
+                const { stdout: nonMergeOut } = await execAsync(
+                  `git log ${currentBranch}..origin/${targetBranch} --no-merges --oneline`,
+                  { cwd: repoRoot }
                 );
+                const uniqueCommits = nonMergeOut.trim().split('\n').filter(Boolean);
 
-                if (choice === 'Cancel' || !choice) {
-                  outputChannel.appendLine('Auto-Deploy cancelled by user due to branch divergence.');
-                  return;
-                }
+                if (uniqueCommits.length === 0) {
+                  outputChannel.appendLine(`Notice: origin/${targetBranch} only contains PR merge commits relative to ${currentBranch}. No true code divergence detected, proceeding safely with Auto-Deploy.`);
+                } else {
+                  outputChannel.appendLine(`Notice: origin/${targetBranch} has ${uniqueCommits.length} unique non-merge commit(s) not in ${currentBranch}.`);
+                  const choice = await vscode.window.showWarningMessage(
+                    `Branch '${currentBranch}' is missing ${uniqueCommits.length} commit(s) from 'origin/${targetBranch}'.`,
+                    'Deploy Anyway (Recommended)',
+                    'Merge Target Branch Locally',
+                    'Cancel'
+                  );
 
-                if (choice === 'Merge Target Branch') {
-                  outputChannel.appendLine(`Merging origin/${targetBranch} into ${currentBranch}...`);
-                  try {
-                    await execAsync(`git merge origin/${targetBranch} -m "chore: sync ${targetBranch} into ${currentBranch} before deploy"`, { cwd: repoRoot });
-                    outputChannel.appendLine(`✓ Successfully merged origin/${targetBranch} into ${currentBranch}.`);
-                  } catch (mergeErr: any) {
-                    outputChannel.appendLine(`❌ Merge conflict occurred locally: ${mergeErr.message}`);
-                    vscode.window.showErrorMessage(`Merge Conflict: Conflicts occurred while merging origin/${targetBranch} into ${currentBranch}. Please resolve them locally first.`);
+                  if (choice === 'Cancel' || !choice) {
+                    outputChannel.appendLine('Auto-Deploy cancelled by user due to branch divergence.');
                     return;
+                  }
+
+                  if (choice === 'Merge Target Branch Locally') {
+                    outputChannel.appendLine(`Merging origin/${targetBranch} into ${currentBranch}...`);
+                    try {
+                      await execAsync(`git merge origin/${targetBranch} -m "chore: sync ${targetBranch} into ${currentBranch} before deploy"`, { cwd: repoRoot });
+                      outputChannel.appendLine(`✓ Successfully merged origin/${targetBranch} into ${currentBranch}.`);
+                    } catch (mergeErr: any) {
+                      outputChannel.appendLine(`❌ Merge conflict occurred locally: ${mergeErr.message}`);
+                      vscode.window.showErrorMessage(`Merge Conflict: Conflicts occurred while merging origin/${targetBranch} into ${currentBranch}. Please resolve them locally first.`);
+                      return;
+                    }
                   }
                 }
               }
@@ -157,45 +180,44 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
             // Non-fatal divergence check
           }
 
-          if (!githubToken) throw new Error('No GitHub token available.');
-
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
-              title: '🚀 Auto-Deploy Pipeline',
+              title: `🚀 Auto-Deploy Pipeline (${gitInfo.provider})`,
               cancellable: true
             },
             async (progress, token) => {
               
-              // 5. Push current branch using default origin (respects user's SSH/Git credentials)
+              // 7. Push current branch using default origin (respects user's SSH/Git credentials)
               progress.report({ message: `Pushing ${currentBranch} to remote...` });
               await execAsync(`git push origin ${currentBranch}:${currentBranch}`, { 
                 cwd: repoRoot,
                 env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
               });
 
-              // 6. Check for existing open PR or Create PR
-              progress.report({ message: `Checking for existing Pull Request to ${targetBranch}...` });
+              // 8. Check for existing open PR/MR or Create PR/MR
+              progress.report({ message: `Checking for existing ${termPullRequest} to ${targetBranch}...` });
               let pr = await findExistingPullRequest(
-                githubInfo.owner,
-                githubInfo.repo,
+                gitInfo.owner,
+                gitInfo.repo,
                 currentBranch,
                 targetBranch,
-                githubToken
+                gitToken,
+                gitInfo
               );
 
               if (pr) {
-                outputChannel.appendLine(`✓ Reusing existing open PR #${pr.number}: ${pr.html_url}`);
+                outputChannel.appendLine(`✓ Reusing existing open ${termPR} #${pr.number}: ${pr.html_url}`);
               } else {
-                // Generate PR Message
-                progress.report({ message: `Generating PR message via AI...` });
+                // Generate PR/MR Message
+                progress.report({ message: `Generating ${termPR} message via AI...` });
                 let prDiff = '';
                 try {
                   const { stdout } = await execAsync(`git diff origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot, maxBuffer: 5 * 1024 * 1024 });
                   prDiff = stdout;
                   if (prDiff.length > 100000) {
-                     const { stdout: statOut } = await execAsync(`git diff --stat origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
-                     prDiff = statOut;
+                    const { stdout: statOut } = await execAsync(`git diff --stat origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
+                    prDiff = statOut;
                   }
                 } catch (e: any) {
                   const { stdout } = await execAsync(`git diff --name-status origin/${targetBranch}...${currentBranch}`, { cwd: repoRoot });
@@ -203,16 +225,16 @@ export function registerAutoDeployCommand(context: vscode.ExtensionContext, outp
                 }
                 
                 if (!prDiff.trim()) {
-                   throw new Error(`No differences found between ${targetBranch} and ${currentBranch}.`);
+                  throw new Error(`No differences found between ${targetBranch} and ${currentBranch}.`);
                 }
 
                 let issueTitle = `Deploy ${currentBranch} -> ${targetBranch}`;
-                let issueBody = 'Auto-generated PR from AI Commit Generator.';
+                let issueBody = `Auto-generated ${termPR} from AI Commit Generator.`;
 
                 try {
-                  const prompt = `You are a developer creating a Pull Request.
+                  const prompt = `You are a developer creating a ${termPullRequest}.
 Below are the changes between the target branch (${targetBranch}) and the current branch (${currentBranch}).
-Write a concise Pull Request Title on the first line.
+Write a concise ${termPullRequest} Title on the first line.
 Leave the second line blank.
 Write a concise description of the changes (bullet points are fine) starting from the third line.
 
@@ -225,44 +247,46 @@ ${prDiff}`;
                     issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || issueBody;
                   }
                 } catch (aiErr: any) {
-                  outputChannel.appendLine(`Notice: AI PR message generation skipped (${aiErr.message}), using fallback title.`);
+                  outputChannel.appendLine(`Notice: AI ${termPR} message generation skipped (${aiErr.message}), using fallback title.`);
                 }
 
-                // Create PR
-                progress.report({ message: `Creating Pull Request to ${targetBranch}...` });
+                // Create PR / MR
+                progress.report({ message: `Creating ${termPullRequest} to ${targetBranch}...` });
                 pr = await createPullRequest(
-                  githubInfo.owner,
-                  githubInfo.repo,
+                  gitInfo.owner,
+                  gitInfo.repo,
                   issueTitle,
                   issueBody,
                   currentBranch,
                   targetBranch,
-                  githubToken
+                  gitToken,
+                  gitInfo
                 );
-                outputChannel.appendLine(`✓ Created PR #${pr.number}: ${pr.html_url}`);
+                outputChannel.appendLine(`✓ Created ${termPR} #${pr.number}: ${pr.html_url}`);
               }
 
-              // 7. Asynchronous PR Mergeability Guard
-              progress.report({ message: `Verifying PR #${pr.number} mergeability...` });
+              // 9. Asynchronous PR / MR Mergeability Guard
+              progress.report({ message: `Verifying ${termPR} #${pr.number} mergeability...` });
               const prMergeable = await checkPullRequestMergeable(
-                githubInfo.owner,
-                githubInfo.repo,
+                gitInfo.owner,
+                gitInfo.repo,
                 pr.number,
-                githubToken,
+                gitToken,
                 10,
-                2000
+                2000,
+                gitInfo
               );
 
-              outputChannel.appendLine(`[PR #${pr.number}] Mergeable Status: ${prMergeable.mergeable} (state: ${prMergeable.mergeableState})`);
+              outputChannel.appendLine(`[${termPR} #${pr.number}] Mergeable Status: ${prMergeable.mergeable} (state: ${prMergeable.mergeableState})`);
 
               if (prMergeable.mergeable === false || prMergeable.mergeableState === 'dirty') {
-                outputChannel.appendLine(`❌ Auto-Deploy Aborted: PR #${pr.number} has merge conflicts with ${targetBranch}.`);
+                outputChannel.appendLine(`❌ Auto-Deploy Aborted: ${termPR} #${pr.number} has merge conflicts with ${targetBranch}.`);
                 const action = await vscode.window.showWarningMessage(
-                  `Auto-Deploy Conflict: PR #${pr.number} has merge conflicts with ${targetBranch} on GitHub.`,
+                  `Auto-Deploy Conflict: ${termPR} #${pr.number} has merge conflicts with ${targetBranch} on ${gitInfo.provider}.`,
                   'Sync & Merge Locally',
-                  'Open PR on GitHub'
+                  `Open ${termPR} in Browser`
                 );
-                if (action === 'Open PR on GitHub') {
+                if (action === `Open ${termPR} in Browser`) {
                   vscode.env.openExternal(vscode.Uri.parse(pr.html_url));
                 } else if (action === 'Sync & Merge Locally') {
                   try {
@@ -275,32 +299,32 @@ ${prDiff}`;
                 return;
               }
 
-              // 8. Poll CI/CD Checks
-              progress.report({ message: `PR #${pr.number} verified. Waiting for CI/CD checks...` });
+              // 10. Poll CI/CD Checks
+              progress.report({ message: `${termPR} #${pr.number} verified. Waiting for CI/CD checks...` });
               let status = 'pending';
               while (status === 'pending') {
-                 if (token.isCancellationRequested) {
-                    outputChannel.appendLine(`Auto-Deploy cancelled. PR is still open.`);
-                    return;
-                 }
-                 await new Promise(r => setTimeout(r, 10000)); // wait 10s
-                 status = await checkPullRequestStatus(githubInfo.owner, githubInfo.repo, pr.head.sha, githubToken);
-                 
-                 outputChannel.appendLine(`[PR #${pr.number}] CI/CD Status: ${status}`);
+                if (token.isCancellationRequested) {
+                  outputChannel.appendLine(`Auto-Deploy cancelled. ${termPR} is still open.`);
+                  return;
+                }
+                await new Promise(r => setTimeout(r, 10000)); // wait 10s
+                status = await checkPullRequestStatus(gitInfo.owner, gitInfo.repo, pr.head.sha, gitToken, gitInfo);
+                
+                outputChannel.appendLine(`[${termPR} #${pr.number}] CI/CD Status: ${status}`);
               }
 
               if (status === 'failure') {
-                 throw new Error(`CI/CD Checks failed for PR #${pr.number}. Merge aborted.`);
+                throw new Error(`CI/CD Checks failed for ${termPR} #${pr.number}. Merge aborted.`);
               }
 
-              // 9. Auto-Merge
+              // 11. Auto-Merge
               const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-              const mergeMethod = config.get<'squash' | 'merge' | 'rebase'>('autoDeployMergeMethod', 'squash');
-              progress.report({ message: `CI/CD passed! Merging PR #${pr.number} (${mergeMethod})...` });
-              await mergePullRequest(githubInfo.owner, githubInfo.repo, pr.number, githubToken, mergeMethod);
-              outputChannel.appendLine(`✓ Successfully merged PR #${pr.number} via ${mergeMethod}!`);
+              const mergeMethod = config.get<'squash' | 'merge' | 'rebase'>('autoDeployMergeMethod', 'merge');
+              progress.report({ message: `CI/CD passed! Merging ${termPR} #${pr.number} (${mergeMethod})...` });
+              await mergePullRequest(gitInfo.owner, gitInfo.repo, pr.number, gitToken, mergeMethod, gitInfo);
+              outputChannel.appendLine(`✓ Successfully merged ${termPR} #${pr.number} via ${mergeMethod}!`);
 
-              // 10. Post-Merge Sync
+              // 12. Post-Merge Sync
               try {
                 await execAsync('git fetch origin', {
                   cwd: repoRoot,
@@ -309,12 +333,12 @@ ${prDiff}`;
                 });
               } catch (_) {}
 
-              vscode.window.showInformationMessage(`🚀 Auto-Deploy successful! PR #${pr.number} merged into ${targetBranch}.`);
+              vscode.window.showInformationMessage(`🚀 Auto-Deploy successful! ${termPR} #${pr.number} merged into ${targetBranch}.`);
             }
           );
         } catch (err: any) {
-           outputChannel.appendLine(`❌ Auto-Deploy Error: ${err.message}`);
-           vscode.window.showErrorMessage(`Auto-Deploy Failed: ${err.message}`);
+          outputChannel.appendLine(`❌ Auto-Deploy Error: ${err.message}`);
+          vscode.window.showErrorMessage(`Auto-Deploy Failed: ${err.message}`);
         }
       }
     )
