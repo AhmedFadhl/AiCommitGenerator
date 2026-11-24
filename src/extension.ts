@@ -6,7 +6,11 @@ import { promisify } from 'util';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getGitHubAccessToken } from './githubAuth';
 import * as path from 'path';
-import { findRelevantIssue } from './llm_issue_matcher';
+import { CommitPipeline } from './pipeline/orchestrator';
+import { invokeProvider } from './pipeline/llm-client';
+import { createPullRequest, checkPullRequestStatus, mergePullRequest } from './githubApi';
+import { registerAutoDeployCommand } from './autoDeploy';
+import { GoogleAuthService } from './services/googleAuth';
 
 const execAsync = promisify(exec);
 
@@ -62,7 +66,7 @@ async function ensureGitRepo(cwd: string) {
   await execAsync('git rev-parse --is-inside-work-tree', { cwd });
 }
 
-async function getRemoteUrl(repoRoot: string): Promise<string | undefined> {
+export async function getRemoteUrl(repoRoot: string): Promise<string | undefined> {
   try {
     const { stdout } = await execAsync('git remote get-url origin', { cwd: repoRoot });
     return stdout.trim();
@@ -81,46 +85,147 @@ async function getRemoteUrl(repoRoot: string): Promise<string | undefined> {
   return undefined;
 }
 
-function parseGitHubUrl(url: string): { owner: string; repo: string } | undefined {
-  // Matches:
-  // https://github.com/owner/repo.git
-  // git@github.com:owner/repo.git
-  const regex = /(?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\/.]+)(?:\.git)?/;
-  const match = url.match(regex);
-  if (match) {
-    return { owner: match[1], repo: match[2] };
+export type GitProviderType = 'github' | 'github-enterprise' | 'gitlab' | 'gitea';
+
+export interface GitRemoteInfo {
+  host: string;
+  owner: string;
+  repo: string;
+  fullPath: string;
+  isGitHub: boolean;
+  provider: GitProviderType;
+  apiUrl: string;
+}
+
+export function parseGitRemoteUrl(url: string): GitRemoteInfo | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+
+  let host = '';
+  let path = '';
+
+  // 1. SSH scp-like syntax: [user@]host:owner/repo[.git]
+  const scpMatch = trimmed.match(/^(?:[\w-]+@)?([^:/]+):(.+?)(?:\.git)?$/);
+  if (scpMatch && !trimmed.includes('://')) {
+    host = scpMatch[1];
+    path = scpMatch[2].replace(/^\/+|\/+$/g, '');
+  } else {
+    // 2. URL syntax: http(s):// or ssh:// or git://
+    const urlMatch = trimmed.match(/^(?:https?|ssh|git):\/\/(?:[\w-]+@)?([^\/:]+)(?::\d+)?\/(.+?)(?:\.git)?$/);
+    if (urlMatch) {
+      host = urlMatch[1];
+      path = urlMatch[2].replace(/^\/+|\/+$/g, '');
+    }
+  }
+
+  if (!host || !path) {
+    return undefined;
+  }
+
+  const parts = path.split('/');
+  const repo = parts[parts.length - 1];
+  const owner = parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : parts[0];
+  const fullPath = path;
+  const isGitHub = host.toLowerCase() === 'github.com';
+
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const configuredProvider = config.get<string>('gitProvider', 'auto');
+  const customApiUrl = (config.get<string>('customGitApiUrl') || '').trim().replace(/\/+$/, '');
+
+  let provider: GitProviderType = 'github';
+  if (configuredProvider && configuredProvider !== 'auto') {
+    provider = configuredProvider as GitProviderType;
+  } else {
+    const lowerHost = host.toLowerCase();
+    if (isGitHub) {
+      provider = 'github';
+    } else if (lowerHost.includes('gitlab')) {
+      provider = 'gitlab';
+    } else if (lowerHost.includes('gitea') || lowerHost.includes('forgejo')) {
+      provider = 'gitea';
+    } else {
+      provider = 'github-enterprise';
+    }
+  }
+
+  let apiUrl = '';
+  if (customApiUrl) {
+    apiUrl = customApiUrl;
+  } else {
+    if (provider === 'github') {
+      apiUrl = 'https://api.github.com';
+    } else if (provider === 'gitlab') {
+      apiUrl = `https://${host}/api/v4`;
+    } else if (provider === 'gitea') {
+      apiUrl = `https://${host}/api/v1`;
+    } else {
+      apiUrl = `https://${host}/api/v3`;
+    }
+  }
+
+  return {
+    host,
+    owner,
+    repo,
+    fullPath,
+    isGitHub,
+    provider,
+    apiUrl
+  };
+}
+
+export function parseGitHubUrl(url: string): { owner: string; repo: string } | undefined {
+  const info = parseGitRemoteUrl(url);
+  if (info) {
+    return { owner: info.owner, repo: info.repo };
   }
   return undefined;
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              GITHUB UTILITIES                              */
+/*                              GIT HOSTING UTILITIES                         */
 /* -------------------------------------------------------------------------- */
 
-async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIssue[]> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  // const githubToken = config.get<string>('issueTrackerToken');
-  const githubToken = await resolveGitHubToken();
+async function fetchGitHubIssues(owner: string, repo: string, remoteInfo?: GitRemoteInfo): Promise<GitHubIssue[]> {
+  const info = remoteInfo;
+  const token = await resolveGitToken(info);
+  const provider = info?.provider || 'github';
+  const apiUrl = info?.apiUrl || 'https://api.github.com';
+
   const headers: Record<string, string> = {
-    'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'VSCode-AI-Commit-Generator'
   };
 
-  if (githubToken) {
-    headers['Authorization'] = `token ${githubToken}`;
+  if (provider === 'gitlab') {
+    if (token) headers['PRIVATE-TOKEN'] = token;
+  } else {
+    headers['Accept'] = 'application/vnd.github.v3+json';
+    if (token) headers['Authorization'] = `token ${token}`;
   }
 
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=50`;
+  const url = provider === 'gitlab'
+    ? `${apiUrl}/projects/${encodeURIComponent(info?.fullPath || `${owner}/${repo}`)}/issues?state=opened&per_page=50`
+    : `${apiUrl}/repos/${owner}/${repo}/issues?state=open&per_page=50`;
 
   try {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        console.warn('GitHub API access limited. Please provide a githubToken in settings for higher limits.');
+        console.warn(`${provider.toUpperCase()} API access limited or unauthorized. Please provide a gitToken in settings.`);
       }
       return [];
     }
     const issues = await response.json() as any[];
+    if (!Array.isArray(issues)) return [];
+
+    if (provider === 'gitlab') {
+      return issues.map(issue => ({
+        number: issue.iid,
+        title: issue.title,
+        body: issue.description || ''
+      }));
+    }
+
     return issues
       .filter(issue => !issue.pull_request) // Filter out pull requests
       .map(issue => ({
@@ -129,7 +234,7 @@ async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIss
         body: issue.body || ''
       }));
   } catch (err) {
-    console.error('Error fetching GitHub issues:', err);
+    console.error(`Error fetching ${provider} issues:`, err);
     return [];
   }
 }
@@ -141,11 +246,18 @@ async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIss
 async function getRepoDiff(repoRoot: string): Promise<string> {
   await ensureGitRepo(repoRoot);
 
-  const { stdout: staged } = await execAsync('git diff --cached', { cwd: repoRoot });
-  if (staged.trim()) return staged;
+  let { stdout: staged } = await execAsync('git diff --cached', { cwd: repoRoot });
+  if (!staged.trim()) {
+    const { stdout } = await execAsync('git diff', { cwd: repoRoot });
+    staged = stdout;
+  }
 
-  const { stdout } = await execAsync('git diff', { cwd: repoRoot });
-  return stdout;
+  const MAX_DIFF_LENGTH = 12000;
+  if (staged.length > MAX_DIFF_LENGTH) {
+    staged = staged.substring(0, MAX_DIFF_LENGTH) + '\n\n... [DIFF TRUNCATED DUE TO SIZE] ...';
+  }
+
+  return staged;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -154,114 +266,440 @@ async function getRepoDiff(repoRoot: string): Promise<string> {
 
 function cleanCommitMessage(msg: string): string {
   return msg
-    .replace(/^```[\s\S]*?\n/, '')
-    .replace(/```$/, '')
+    .replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '')
+    .replace(/^```[a-zA-Z]*\n?/, '')
+    .replace(/\n?```$/, '')
     .trim();
 }
 
-async function generateCommitMessage(
+const DEPRECATED_GROQ_MODELS_UI: ReadonlySet<string> = new Set([
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'qwen-qwq-32b',
+  'deepseek-r1-distill-llama-70b'
+]);
+
+function getActiveModel(provider: string, config?: vscode.WorkspaceConfiguration): string {
+  const cfg = config || vscode.workspace.getConfiguration('aiCommitGenerator');
+  const customModel = (cfg.get<string>('customModel') || '').trim();
+  const configuredModel = cfg.get<string>(`${provider}Model`);
+
+  if (configuredModel === 'custom') {
+    if (customModel.length > 0) {
+      if (provider === 'groq' && DEPRECATED_GROQ_MODELS_UI.has(customModel)) {
+        return 'openai/gpt-oss-120b';
+      }
+      return customModel;
+    }
+    vscode.window.showWarningMessage(
+      `AI Commit Generator: 'custom' selected for ${provider}, but 'customModel' is empty. Falling back to default.`
+    );
+  } else if (configuredModel) {
+    if (provider === 'groq' && DEPRECATED_GROQ_MODELS_UI.has(configuredModel)) {
+      return 'openai/gpt-oss-120b';
+    }
+    return configuredModel;
+  }
+
+  switch (provider) {
+    case 'gemini': return 'gemini-3.1-flash-lite-preview';
+    case 'groq': return 'openai/gpt-oss-120b';
+    case 'openrouter': return 'openrouter/free';
+    case 'github': return 'openai/gpt-4.1-mini';
+    case 'mistral': return 'codestral-latest';
+    case 'apinex': return 'free/deepseek-v4.1-flash';
+    case 'openai': return 'gpt-4o-mini';
+    case 'ollama': return cfg.get<string>('ollamaModel') || 'gemma2:9b';
+    case 'deepseek': return 'deepseek-chat';
+    default: return 'gemini-3.1-flash-lite-preview';
+  }
+}
+
+interface ModelQuickPickItem extends vscode.QuickPickItem {
+  action?: 'add' | 'remove' | 'select' | 'switch-provider' | 'set-api-key' | 'fetch-live-models';
+  modelName?: string;
+  isCustom?: boolean;
+}
+
+const PROVIDER_DISPLAY_META: Readonly<Record<string, { title: string; badge: string; apiKeySetting: string; defaultModel: string; modelsUrl?: string }>> = {
+  groq: { title: 'Groq Cloud', badge: '⚡ Free & Ultra-Fast LPU (500–1000 tok/s)', apiKeySetting: 'groqApiKey', defaultModel: 'openai/gpt-oss-120b', modelsUrl: 'https://api.groq.com/openai/v1/models' },
+  openrouter: { title: 'OpenRouter', badge: '🔄 Free Models & Zero-Cost Auto-Router', apiKeySetting: 'openrouterApiKey', defaultModel: 'openrouter/free', modelsUrl: 'https://openrouter.ai/api/v1/models' },
+  mistral: { title: 'Mistral Studio', badge: '🧠 Free Codestral Experimentation Tier', apiKeySetting: 'mistralApiKey', defaultModel: 'codestral-latest', modelsUrl: 'https://api.mistral.ai/v1/models' },
+  gemini: { title: 'Google Gemini', badge: '✨ AI Studio OAuth / API Key', apiKeySetting: 'apiKey', defaultModel: 'gemini-3.1-flash-lite-preview' },
+  apinex: { title: 'APInex', badge: '🌐 Multi-Model Gateway (apinex.bond)', apiKeySetting: 'apinexApiKey', defaultModel: 'free/deepseek-v4.1-flash', modelsUrl: 'https://api.apinex.bond/v1/models' },
+  openai: { title: 'OpenAI', badge: '🤖 GPT-4o & Reasoning Models', apiKeySetting: 'apiKey', defaultModel: 'gpt-4o-mini', modelsUrl: 'https://api.openai.com/v1/models' },
+  deepseek: { title: 'DeepSeek', badge: '🐋 DeepSeek Chat & Coder', apiKeySetting: 'apiKey', defaultModel: 'deepseek-chat', modelsUrl: 'https://api.deepseek.com/models' },
+  ollama: { title: 'Ollama', badge: '💻 Local Offline LLM', apiKeySetting: '', defaultModel: 'gemma2:9b' }
+};
+
+async function showSelectModelQuickPick(): Promise<void> {
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const provider = config.get<string>('provider') || 'gemini';
+  const activeModel = getActiveModel(provider, config);
+
+  const meta = PROVIDER_DISPLAY_META[provider] || {
+    title: provider.charAt(0).toUpperCase() + provider.slice(1),
+    badge: '',
+    apiKeySetting: 'apiKey',
+    defaultModel: 'gemini-3.1-flash-lite-preview'
+  };
+  const providerTitle = meta.title;
+
+  const customModelsKeyMap: Record<string, string> = {
+    gemini: 'customGeminiModels',
+    groq: 'customGroqModels',
+    openrouter: 'customOpenrouterModels',
+    github: 'customGithubModels',
+    mistral: 'customMistralModels',
+    apinex: 'customApinexModels',
+    openai: 'customOpenaiModels',
+    deepseek: 'customDeepseekModels'
+  };
+  const customModelsKey = customModelsKeyMap[provider] || 'customGeminiModels';
+  const customModels = (config.get<string[]>(customModelsKey) || [])
+    .map(m => (m || '').trim())
+    .filter(m => m.length > 0);
+
+  const builtInMap: Record<string, string[]> = {
+    gemini: [
+      'gemini-3.1-flash-lite-preview',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-pro',
+      'gemini-3-flash-preview',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro'
+    ],
+    groq: [
+      'openai/gpt-oss-120b',
+      'openai/gpt-oss-20b',
+      'qwen/qwen3.8-27b',
+      'allam-2-7b'
+    ],
+    openrouter: [
+      'openrouter/free',
+      'nvidia/nemotron-3.5-lightning:free',
+      'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'inclusionai/ling-3.2-flash:free',
+      'baidu/ernie-5.5-flash-preview:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+      'qwen/qwen3-coder:free',
+      'openai/gpt-oss-20b:free',
+      'nvidia/nemotron-nano-9b-v2:free',
+      'alibaba/tongyi-deepresearch-30b-a3b:free',
+      'amazon/nova-2-lite-v1:free',
+      'mistralai/devstral-2512:free',
+      'openai/gpt-oss-120b:free'
+    ],
+    github: [
+      'openai/gpt-4.1-mini',
+      'openai/gpt-4o-mini',
+      'openai/gpt-4.1',
+      'deepseek/DeepSeek-V3-0324',
+      'meta/Llama-3.3-70B-Instruct',
+      'mistral-ai/Codestral-2501'
+    ],
+    mistral: [
+      'codestral-latest',
+      'mistral-small-latest',
+      'mistral-large-latest',
+      'ministral-8b-latest'
+    ],
+    apinex: [
+      'free/deepseek-v4.1-flash',
+      'free/glm-5.3-flash',
+      'free/gemini-4-hydrogen',
+      'free/gpt-6-luna',
+      'free/qwen-3.8-max',
+      'free/minimax-m3.1-flash',
+      'free/claude-sonnet-4.6',
+      'claude-sonnet-5.5',
+      'deepseek-v4.1-flash'
+    ],
+    openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+    deepseek: ['deepseek-chat', 'deepseek-coder'],
+    ollama: ['gemma2:9b', 'llama3', 'mistral']
+  };
+
+  const presets = builtInMap[provider] || [];
+  const items: ModelQuickPickItem[] = [];
+
+  items.push({
+    label: `$(arrow-swap) Switch AI Provider...`,
+    description: `Current: ${providerTitle} (${meta.badge})`,
+    action: 'switch-provider'
+  });
+
+  if (meta.apiKeySetting) {
+    const hasDedicatedKey = !!(config.get<string>(meta.apiKeySetting) || '').trim();
+    const hasSharedKey = !!(config.get<string>('apiKey') || '').trim();
+    const keyStatus = provider === 'github'
+      ? (hasDedicatedKey ? 'Configured (Dedicated PAT)' : 'Auto (Using GitHub Account / gitToken)')
+      : (hasDedicatedKey || hasSharedKey ? 'Configured ✔' : 'Not Configured ⚠️');
+    items.push({
+      label: `$(key) Set / Update ${providerTitle} API Key...`,
+      description: keyStatus,
+      action: 'set-api-key'
+    });
+  }
+
+  items.push({
+    label: `$(plus) Add New Custom Model...`,
+    description: `Add a new model identifier to ${providerTitle} list`,
+    action: 'add'
+  });
+
+  if (meta.modelsUrl) {
+    items.push({
+      label: `$(sync) Fetch Live Models from ${providerTitle} API...`,
+      description: `Query ${meta.modelsUrl} for all active chat models on your account`,
+      action: 'fetch-live-models'
+    });
+  }
+
+  if (customModels.length > 0) {
+    items.push({
+      label: 'Custom Models',
+      kind: vscode.QuickPickItemKind.Separator
+    });
+
+    for (const model of customModels) {
+      const isActive = model.toLowerCase() === activeModel.toLowerCase();
+      items.push({
+        label: isActive ? `$(check) ${model}` : `$(sparkle) ${model}`,
+        description: isActive ? '(Active Custom Model)' : '(Custom Model)',
+        action: 'select',
+        modelName: model,
+        isCustom: true
+      });
+    }
+  }
+
+  if (presets.length > 0) {
+    items.push({
+      label: `${providerTitle} Presets`,
+      kind: vscode.QuickPickItemKind.Separator
+    });
+
+    for (const model of presets) {
+      const isActive = model.toLowerCase() === activeModel.toLowerCase();
+      items.push({
+        label: isActive ? `$(check) ${model}` : `$(symbol-event) ${model}`,
+        description: isActive ? '(Active Model)' : '',
+        action: 'select',
+        modelName: model,
+        isCustom: false
+      });
+    }
+  }
+
+  if (customModels.length > 0) {
+    items.push({
+      label: 'Manage',
+      kind: vscode.QuickPickItemKind.Separator
+    });
+    items.push({
+      label: `$(trash) Remove a Custom Model...`,
+      description: `Delete a custom model from the ${providerTitle} list`,
+      action: 'remove'
+    });
+  }
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: `Select AI model or switch provider (Current: ${providerTitle} • ${activeModel})`,
+    title: `AI Commit Generator: ${providerTitle} Models`
+  });
+
+  if (!selected) return;
+
+  if (selected.action === 'switch-provider') {
+    const providerChoices = Object.entries(PROVIDER_DISPLAY_META).map(([id, info]) => ({
+      label: id === provider ? `$(check) ${info.title}` : `$(hubot) ${info.title}`,
+      description: info.badge,
+      detail: `Default model: ${getActiveModel(id, config)}`,
+      providerId: id
+    }));
+
+    const pickedProvider = await vscode.window.showQuickPick(providerChoices, {
+      placeHolder: 'Choose AI Provider (Groq, OpenRouter, GitHub Models, Mistral, APInex, Gemini, OpenAI, DeepSeek, Ollama)',
+      title: 'AI Commit Generator: Switch AI Provider'
+    });
+
+    if (!pickedProvider) return;
+    await config.update('provider', pickedProvider.providerId, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(
+      `AI Commit Generator: Switched provider to ${PROVIDER_DISPLAY_META[pickedProvider.providerId]?.title || pickedProvider.providerId}.`
+    );
+    await showSelectModelQuickPick();
+    return;
+  }
+
+  if (selected.action === 'set-api-key' && meta.apiKeySetting) {
+    const keyInput = await vscode.window.showInputBox({
+      title: `Configure ${providerTitle} API Key`,
+      prompt: `Enter your ${providerTitle} API Key (saved to aiCommitGenerator.${meta.apiKeySetting})`,
+      password: true,
+      placeHolder: provider === 'groq' ? 'gsk_...' : provider === 'apinex' ? 'sk-apx...' : provider === 'openrouter' ? 'sk-or-...' : 'API Key / PAT',
+      ignoreFocusOut: true
+    });
+
+    if (keyInput !== undefined) {
+      const trimmedKey = keyInput.trim();
+      await config.update(meta.apiKeySetting, trimmedKey, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(
+        trimmedKey
+          ? `AI Commit Generator: ${providerTitle} API key saved!`
+          : `AI Commit Generator: Cleared dedicated ${providerTitle} API key.`
+      );
+    }
+    return;
+  }
+
+  if (selected.action === 'fetch-live-models' && meta.modelsUrl) {
+    const apiKey = (config.get<string>(meta.apiKeySetting) || config.get<string>('apiKey') || '').trim();
+    if (!apiKey && provider !== 'openrouter') {
+      vscode.window.showWarningMessage(`Please set your ${providerTitle} API key first to fetch live models.`);
+      return;
+    }
+    try {
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+      const res = await fetch(meta.modelsUrl, { headers });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      }
+      const payload: any = await res.json();
+      const rawModels: string[] = Array.isArray(payload?.data)
+        ? payload.data.map((m: any) => String(m?.id || '')).filter(Boolean)
+        : [];
+      const chatModels = rawModels
+        .filter(id => !/(whisper|orpheus|tts|embed|guard|safeguard|moderation|audio)/i.test(id))
+        .sort();
+
+      if (chatModels.length === 0) {
+        vscode.window.showWarningMessage(`No chat models returned from ${providerTitle}.`);
+        return;
+      }
+
+      const livePicked = await vscode.window.showQuickPick(
+        chatModels.map(id => ({
+          label: id.toLowerCase() === activeModel.toLowerCase() ? `$(check) ${id}` : `$(cloud) ${id}`,
+          description: id.toLowerCase() === activeModel.toLowerCase() ? '(Active)' : `Live on ${providerTitle}`,
+          modelId: id
+        })),
+        {
+          placeHolder: `Select a live model from ${providerTitle} (${chatModels.length} available)`,
+          title: `Live ${providerTitle} Models`
+        }
+      );
+
+      if (!livePicked) return;
+      const chosen = livePicked.modelId;
+      if (presets.includes(chosen)) {
+        await config.update(`${provider}Model`, chosen, vscode.ConfigurationTarget.Global);
+      } else {
+        if (!customModels.some(m => m.toLowerCase() === chosen.toLowerCase())) {
+          await config.update(customModelsKey, [...customModels, chosen], vscode.ConfigurationTarget.Global);
+        }
+        await config.update('customModel', chosen, vscode.ConfigurationTarget.Global);
+        await config.update(`${provider}Model`, 'custom', vscode.ConfigurationTarget.Global);
+      }
+      vscode.window.showInformationMessage(`AI Commit Generator: Activated live ${providerTitle} model '${chosen}'.`);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Failed to fetch live models from ${providerTitle}: ${err.message || String(err)}`);
+    }
+    return;
+  }
+
+  if (selected.action === 'add') {
+    const input = await vscode.window.showInputBox({
+      title: `Add Custom ${providerTitle} Model`,
+      prompt: `Enter the model identifier (e.g. llama-3.3-70b-versatile, openrouter/free, codestral-latest)`,
+      placeHolder: 'model-identifier',
+      validateInput: (val) => {
+        const trimmed = (val || '').trim();
+        if (!trimmed) return 'Model identifier cannot be empty';
+        if (customModels.some(m => m.toLowerCase() === trimmed.toLowerCase())) {
+          return 'This model is already in your custom models list';
+        }
+        return null;
+      }
+    });
+
+    if (!input) return;
+    const newModel = input.trim();
+    const updatedCustom = [...customModels, newModel];
+
+    await config.update(customModelsKey, updatedCustom, vscode.ConfigurationTarget.Global);
+    await config.update('customModel', newModel, vscode.ConfigurationTarget.Global);
+    await config.update(`${provider}Model`, 'custom', vscode.ConfigurationTarget.Global);
+
+    vscode.window.showInformationMessage(
+      `AI Commit Generator: Added and activated custom model '${newModel}' for ${providerTitle}.`
+    );
+  } else if (selected.action === 'remove') {
+    const removePick = await vscode.window.showQuickPick(
+      customModels.map(m => ({ label: `$(trash) ${m}`, modelName: m })),
+      {
+        placeHolder: 'Choose a custom model to remove',
+        title: `Remove Custom ${providerTitle} Model`
+      }
+    );
+
+    if (!removePick) return;
+    const toRemove = removePick.modelName;
+    const filtered = customModels.filter(m => m.toLowerCase() !== toRemove.toLowerCase());
+
+    await config.update(customModelsKey, filtered, vscode.ConfigurationTarget.Global);
+
+    const currentCustom = (config.get<string>('customModel') || '').trim();
+    if (currentCustom.toLowerCase() === toRemove.toLowerCase()) {
+      await config.update('customModel', '', vscode.ConfigurationTarget.Global);
+      const defaultPreset = presets[0] || meta.defaultModel;
+      if (defaultPreset) {
+        await config.update(`${provider}Model`, defaultPreset, vscode.ConfigurationTarget.Global);
+      }
+    }
+
+    vscode.window.showInformationMessage(`AI Commit Generator: Removed custom model '${toRemove}'.`);
+  } else if (selected.action === 'select' && selected.modelName) {
+    if (selected.isCustom) {
+      await config.update('customModel', selected.modelName, vscode.ConfigurationTarget.Global);
+      await config.update(`${provider}Model`, 'custom', vscode.ConfigurationTarget.Global);
+    } else {
+      await config.update(`${provider}Model`, selected.modelName, vscode.ConfigurationTarget.Global);
+    }
+    vscode.window.showInformationMessage(
+      `AI Commit Generator: Switched active ${providerTitle} model to '${selected.modelName}'.`
+    );
+  }
+}
+
+let globalOutputChannel: vscode.OutputChannel | undefined;
+
+export async function generateCommitMessage(
   diff: string,
   issues: GitHubIssue[],
   token: vscode.CancellationToken
-): Promise<string> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const provider = config.get<string>('provider') || 'gemini';
-  const apiKey = config.get<string>('apiKey');
+): Promise<{ commitMessage: string, diffAnalysis: any, issueAnalysis: any }> {
 
-  if (!apiKey) throw new Error('API key not configured');
-
-  let issuesContext = '';
-  if (issues.length > 0) {
-    // MODIFICATION: Include the issue body (truncated) for better relevance checking by the LLM
-    issuesContext = '\nOpen GitHub Issues (Title and Body):\n' + issues.map(i =>
-      `ID: #${i.number} | Title: ${i.title} | Body: ${i.body.substring(0, 150).replace(/\n/g, ' ')}...`
-    ).join('\n') + '\n';
-  }
-
-  const prompt = `
-Generate a semantic Git commit message based on the diff below.
-
-Rules:
-- Imperative mood (e.g., "Add feature" not "Added feature")
-- Prefix: feat | fix | refactor | chore | docs | test
-- 50 char subject line
-- Blank line
-- Detailed body explaining WHAT and WHY
-
-ISSUE LINKING:
-${issues.length > 0
-      ? `- The following issue was identified as highly relevant: #${issues[0].number}
-- If the changes DIRECTLY fix this issue, include "Closes #<ID>" in the body.
-- If the changes are just related to this issue, include "Relates to #<ID>".
-- If no issue truly matches, do not include any reference.`
-      : '- No relevant issue identified. Do not include issue references.'}
-
-Diff:
-${diff}
-
-Commit message:
-`;
-
-  if (provider === 'gemini') {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = config.get<string>('geminiModel') || 'gemini-3-flash-preview';
-    const model = genAI.getGenerativeModel({ model: modelName });
-
-    if (token.isCancellationRequested) throw new vscode.CancellationError();
-
-    const result = await model.generateContent(prompt);
-    return cleanCommitMessage(result.response.text());
-  }
-  if (provider === 'openai') {
-    if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
+  const pipeline = new CommitPipeline(
+    (prompt, expectJson) => invokeProvider(prompt, token, expectJson),
+    undefined,
+    (msg: string) => {
+      console.log(`[AI Commit Pipeline] ${msg}`);
+      if (globalOutputChannel) {
+        globalOutputChannel.appendLine(`[Pipeline] ${msg}`);
+      }
     }
-
-    const model = config.get<string>('openaiModel') || 'gpt-4o-mini';
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You write concise, semantic Git commit messages.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 200
-      })
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${text}`);
-    }
-
-    if (token.isCancellationRequested) {
-      throw new vscode.CancellationError();
-    }
-
-    const data: any = await response.json();
-
-    let content = data?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('Invalid OpenAI response');
-    }
-    return cleanCommitMessage(content);
-  }
-
-
-  throw new Error(`Unsupported provider: ${provider}`);
+  );
+  return await pipeline.generate(diff, issues);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -273,6 +711,17 @@ export function activate(context: vscode.ExtensionContext) {
   let classification: IssueClassification | undefined;
   console.log('AI Commit Generator Activated');
   const outputChannel = vscode.window.createOutputChannel('AI Commit Generator');
+  globalOutputChannel = outputChannel;
+
+  // Initialize Google AI Studio OAuth Service
+  GoogleAuthService.getInstance().initialize(context);
+  context.subscriptions.push(
+    vscode.window.registerUriHandler({
+      handleUri(uri: vscode.Uri) {
+        GoogleAuthService.getInstance().handleUriCallback(uri);
+      }
+    })
+  );
 
   // Function to set generating state for dynamic icon
   const setGeneratingState = (isGenerating: boolean) => {
@@ -290,7 +739,7 @@ export function activate(context: vscode.ExtensionContext) {
         'Sign in to GitHub',
         'Cancel'
       );
-      
+
       if (login === 'Sign in to GitHub') {
         await getGitHubAccessToken(true);
         const newToken = await resolveGitHubToken();
@@ -309,10 +758,218 @@ export function activate(context: vscode.ExtensionContext) {
       }
     )
   );
+
+  // Status bar indicator for active model & auth hub
+  const modelStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  modelStatusBarItem.command = 'ai-commit-generator.configureFeatures';
+
+  const updateStatusBar = async () => {
+    const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+    const p = cfg.get<string>('provider') || 'gemini';
+    const m = getActiveModel(p, cfg);
+    const rawAuthMode = cfg.get<string>('googleAuthMode', 'ApiKey');
+    const isGoogleAccountAuth = p === 'gemini' && rawAuthMode === 'Account';
+
+    if (isGoogleAccountAuth) {
+      const email = await GoogleAuthService.getInstance().getStoredEmail();
+      if (email) {
+        modelStatusBarItem.text = `$(sparkle) ${p}:${m} ($(account) ${email})`;
+        modelStatusBarItem.tooltip = new vscode.MarkdownString(
+          `**AI Commit Generator Pro**\n\n` +
+          `- **Auth Mode:** Google AI Studio (OAuth 2.0 PKCE)\n` +
+          `- **Account:** \`${email}\` (1,500 free requests/day)\n` +
+          `- **Active Model:** \`${m}\`\n\n` +
+          `*Click to configure features, switch models, or sign out.*`
+        );
+      } else {
+        modelStatusBarItem.text = `$(sparkle) ${p}:${m} ($(alert) Sign In)`;
+        modelStatusBarItem.tooltip = new vscode.MarkdownString(
+          `**AI Commit Generator Pro**\n\n` +
+          `- **Auth Mode:** Google AI Studio (Not signed in)\n` +
+          `- **Active Model:** \`${m}\`\n\n` +
+          `*Click to sign in with Google or configure features.*`
+        );
+      }
+    } else {
+      modelStatusBarItem.text = `$(sparkle) ${p}:${m}`;
+      modelStatusBarItem.tooltip = new vscode.MarkdownString(
+        `**AI Commit Generator Pro**\n\n` +
+        `- **Auth Mode:** API Key (${p})\n` +
+        `- **Active Model:** \`${m}\`\n\n` +
+        `*Click to configure features, toggles, or switch models.*`
+      );
+    }
+    modelStatusBarItem.show();
+  };
+  updateStatusBar();
+  context.subscriptions.push(modelStatusBarItem);
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('aiCommitGenerator')) {
+        updateStatusBar();
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.configureFeatures',
+      async () => {
+        const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+        const rawAuthMode = cfg.get<string>('googleAuthMode', 'ApiKey');
+        const isGoogleAccountAuth = rawAuthMode === 'Account';
+        const enableMultiStyle = cfg.get<boolean>('enableMultiStyle', false);
+        const enableSecretScanner = cfg.get<boolean>('enableSecretScanner', true);
+        const enableSmartDiffFilter = cfg.get<boolean>('enableSmartDiffFilter', true);
+        const commitLanguage = cfg.get<string>('commitLanguage', 'en');
+        const p = cfg.get<string>('provider') || 'gemini';
+        const m = getActiveModel(p, cfg);
+        const email = await GoogleAuthService.getInstance().getStoredEmail();
+
+        const items: (vscode.QuickPickItem & { action: () => Promise<void> })[] = [
+          {
+            label: `${isGoogleAccountAuth ? '$(check)' : '$(circle-slash)'} Google AI Studio Account Auth`,
+            description: isGoogleAccountAuth ? `Enabled (${email || 'Signed In'})` : 'Disabled (Using API Key)',
+            detail: 'Use Google OAuth 2.0 PKCE for 1,500 free requests/day without manual API keys',
+            action: async () => {
+              if (!isGoogleAccountAuth && !email) {
+                await vscode.commands.executeCommand('ai-commit-generator.signInWithGoogle');
+              } else {
+                const nextMode = isGoogleAccountAuth ? 'ApiKey' : 'Account';
+                await cfg.update('googleAuthMode', nextMode, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Google AI Studio Auth Mode: ${nextMode === 'Account' ? 'Enabled (OAuth)' : 'Disabled (API Key)'}`);
+                await updateStatusBar();
+              }
+            }
+          },
+          {
+            label: `${enableMultiStyle ? '$(check)' : '$(circle-slash)'} Multi-Style Commit Variations`,
+            description: enableMultiStyle ? 'Enabled' : 'Disabled',
+            detail: 'Presents 3 variations (Concise, Detailed, Gitmoji) in a QuickPick menu on every commit',
+            action: async () => {
+              await cfg.update('enableMultiStyle', !enableMultiStyle, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Multi-Style Commit Variations: ${!enableMultiStyle ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            label: `${enableSecretScanner ? '$(check)' : '$(circle-slash)'} Pre-Commit Secret Scanner`,
+            description: enableSecretScanner ? 'Enabled' : 'Disabled',
+            detail: 'Scans added lines for leaked credentials (AWS, Google, OpenAI, GitHub, JWT, Private Keys)',
+            action: async () => {
+              await cfg.update('enableSecretScanner', !enableSecretScanner, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Pre-Commit Secret Scanner: ${!enableSecretScanner ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            label: `${enableSmartDiffFilter ? '$(check)' : '$(circle-slash)'} Smart Diff Noise Filter`,
+            description: enableSmartDiffFilter ? 'Enabled' : 'Disabled',
+            detail: 'Prunes package-lock.json, minified files, and binary assets from diff to save tokens',
+            action: async () => {
+              await cfg.update('enableSmartDiffFilter', !enableSmartDiffFilter, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Smart Diff Noise Filter: ${!enableSmartDiffFilter ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            label: `$(globe) Commit Language: ${commitLanguage.toUpperCase()}`,
+            description: commitLanguage === 'en' ? 'English' : commitLanguage === 'ar' ? 'Arabic' : 'Bilingual',
+            detail: 'Select language style: English, Arabic (العربية), or Bilingual (English subject + Arabic body)',
+            action: async () => {
+              const langPick = await vscode.window.showQuickPick([
+                { label: 'English', value: 'en', description: 'Standard conventional commits in English' },
+                { label: 'العربية (Arabic)', value: 'ar', description: 'رسائل التزام باللغة العربية الفصحى' },
+                { label: 'Bilingual (مزدوج)', value: 'bilingual', description: 'English subject with Arabic explanation in body' }
+              ], { placeHolder: 'Select Commit Language' });
+              if (langPick) {
+                await cfg.update('commitLanguage', langPick.value, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Commit Language updated to: ${langPick.label}`);
+              }
+            }
+          },
+          {
+            label: `$(gear) Select AI Model & Provider`,
+            description: `${p}:${m}`,
+            detail: 'Switch between Gemini, OpenAI, Claude, or custom models',
+            action: async () => {
+              await showSelectModelQuickPick();
+              await updateStatusBar();
+            }
+          }
+        ];
+
+        if (email) {
+          items.push({
+            label: `$(sign-out) Sign Out of Google Account`,
+            description: email,
+            detail: 'Revoke local session and switch back to API Key mode',
+            action: async () => {
+              await vscode.commands.executeCommand('ai-commit-generator.signOutGoogle');
+            }
+          });
+        }
+
+        const selected = await vscode.window.showQuickPick(items, {
+          placeHolder: 'AI Commit Generator Pro - Quick Settings Hub'
+        });
+
+        if (selected) {
+          await selected.action();
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.signInWithGoogle',
+      async () => {
+        try {
+          vscode.window.showInformationMessage('Starting Google AI Studio OAuth login...');
+          const success = await GoogleAuthService.getInstance().login();
+          if (success) {
+            const email = await GoogleAuthService.getInstance().getStoredEmail();
+            const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+            await cfg.update('googleAuthMode', 'Account', vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`Successfully signed in to Google AI Studio${email ? ` as ${email}` : ''}! 🎉 (1,500 requests/day active)`);
+            await updateStatusBar();
+          }
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Google Sign-In failed: ${err.message || String(err)}`);
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.signOutGoogle',
+      async () => {
+        try {
+          await GoogleAuthService.getInstance().logout();
+          const cfg = vscode.workspace.getConfiguration('aiCommitGenerator');
+          await cfg.update('googleAuthMode', 'ApiKey', vscode.ConfigurationTarget.Global);
+          vscode.window.showInformationMessage('Signed out of Google account. Reverted to API Key mode.');
+          await updateStatusBar();
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Google Sign-Out failed: ${err.message || String(err)}`);
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'ai-commit-generator.selectModel',
+      async () => {
+        await showSelectModelQuickPick();
+        await updateStatusBar();
+      }
+    )
+  );
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.createIssueFromChanges',
-async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
+      async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
         try {
           // Check GitHub auth before proceeding
           const isAuthenticated = await checkGitHubAuth();
@@ -342,7 +999,7 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
 
           let issues: GitHubIssue[] = [];
           let githubInfo: { owner: string; repo: string } | undefined;
-          let issueToLink: GitHubIssue | undefined;
+          let issuesToLink: GitHubIssue[] = [];
 
           // FIX: Get GitHub repo info - this was missing!
           const remoteUrl = await getRemoteUrl(repoRoot);
@@ -356,17 +1013,16 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
           // 2. Determine Issue Relevance (Two-Step Logic)
           if (githubInfo) {
 
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
+            // Step 2b: If no relevant issues are found, attempt to auto-create a new one
+            if (issuesToLink.length === 0 && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
               outputChannel.appendLine('Attempting to auto-create a new issue...');
 
-              // 🔑 ADD PRE-VALIDATION HERE
-              const githubToken = config.get<string>('issueTrackerToken');
+              // 🔑 Use resolveGitHubToken instead of direct config access
+              const githubToken = await resolveGitHubToken();
               if (!githubToken) {
-                vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
-                outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
-                return; // Or continue without issue linking
+                vscode.window.showWarningMessage('GitHub authentication required to create issues.');
+                outputChannel.appendLine('⚠️ GitHub authentication missing. Skipping issue creation.');
+                return;
               }
 
               try {
@@ -383,14 +1039,27 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
                     progress.report({ message: 'Preparing issue content...' });
                     await new Promise(resolve => setTimeout(resolve, 50));
 
-                    const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
+                    const result = await generateCommitMessage(diff, [], cancellationToken);
+                    const tempMessage = result.commitMessage;
+                    const analysis = result.diffAnalysis;
+
                     const issueTitle = tempMessage.split('\n')[0].trim();
                     const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
-                    classification = await classifyIssueFromDiff(diff, cancellationToken);
+                    
+                    const ISSUE_TYPE_MAP: Record<string, string> = {
+                      feat: 'enhancement',
+                      fix: 'bug',
+                      refactor: 'refactor',
+                      chore: 'chore',
+                      docs: 'docs',
+                      test: 'test'
+                    };
 
+                    const projectContext = config.get<string>('projectContext');
+                    const baseLabel = ISSUE_TYPE_MAP[analysis.type] || analysis.type;
                     const issueLabels = Array.from(new Set([
-                      classification.type,
-                      ...classification.labels
+                      baseLabel,
+                      ...(projectContext ? [projectContext] : [])
                     ]));
 
                     // Get current user for auto-assignment
@@ -409,8 +1078,13 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
 
                     if (newIssue) {
                       outputChannel.appendLine(`✓ Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
+                      issuesToLink = [newIssue];
                       progress.report({ message: `✓ Issue #${newIssue.number} created` });
+                      
+                      if (sourceControl) {
+                        sourceControl.inputBox.value = tempMessage + `\n\nCloses #${newIssue.number}`;
+                      }
+
                       await new Promise(resolve => setTimeout(resolve, 400)); // Keep visible
                       return newIssue;
                     } else {
@@ -450,8 +1124,10 @@ async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) =
     )
   );
 
+  registerAutoDeployCommand(context, outputChannel);
 
-context.subscriptions.push(
+
+  context.subscriptions.push(
     vscode.commands.registerCommand(
       'ai-commit-generator.generateCommitMessage',
       async (sourceControl?: vscode.SourceControl, token?: vscode.CancellationToken) => {
@@ -481,10 +1157,10 @@ context.subscriptions.push(
 
           let issues: GitHubIssue[] = [];
           let githubInfo: { owner: string; repo: string } | undefined;
-          let issueToLink: GitHubIssue | undefined;
+          let issuesToLink: GitHubIssue[] = [];
 
           // 1. Fetch GitHub Issues
-          if (issueTracker === 'github') {
+          if (issueTracker === 'github' && (includeIssueInCommit || autoCreateIssues)) {
             const remoteUrl = await getRemoteUrl(repoRoot);
             if (remoteUrl) {
               githubInfo = parseGitHubUrl(remoteUrl);
@@ -501,35 +1177,48 @@ context.subscriptions.push(
           const cts = new vscode.CancellationTokenSource();
           const cancellationToken = cts.token;
 
-          // 2. Determine Issue Relevance (Two-Step Logic)
-          if (includeIssueInCommit && githubInfo) {
-            if (issues.length > 0) {
-              // Step 2a: Ask LLM to find the most relevant issue among the open ones
-              outputChannel.appendLine('Checking relevance of open issues...');
-              const relevantIssueNumber = await findRelevantIssue(diff, issues, cancellationToken);
+          // 2. Generate Commit Message via Pipeline (One-Pass)
+          let finalCommitMessage = "";
+          let linkedIssuesCount = 0;
+          let shouldAutoCreate = false;
+          let analysisData: any = null;
 
-              if (relevantIssueNumber) {
-                issueToLink = issues.find(i => i.number === relevantIssueNumber);
-                outputChannel.appendLine(`LLM identified relevant issue: #${issueToLink?.number}`);
-              } else {
-                outputChannel.appendLine('LLM found no relevant open issue.');
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Generating commit message...',
+              cancellable: true
+            },
+            async (progress, token) => {
+              token.onCancellationRequested(() => cts.cancel());
+              
+              // Run the one-pass pipeline
+              const result = await generateCommitMessage(diff, includeIssueInCommit ? issues : [], cancellationToken);
+              finalCommitMessage = result.commitMessage;
+              analysisData = result.diffAnalysis;
+
+              // Immediately populate Source Control input box for instant UI response
+              if (sourceControl) {
+                sourceControl.inputBox.value = finalCommitMessage;
               }
+              
+              if (result.issueAnalysis && result.issueAnalysis.issues) {
+                linkedIssuesCount = result.issueAnalysis.issues.filter((i: any) => i.relation !== 'none' && i.confidence >= 0.6).length;
+              }
+              
+              shouldAutoCreate = includeIssueInCommit && autoCreateIssues && linkedIssuesCount === 0 && !!result.diffAnalysis?.shouldCreateIssue;
             }
+          );
 
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            // Step 2b: If no relevant issue is found, attempt to auto-create a new one
-            if (!issueToLink && autoCreateIssues && githubInfo?.owner && githubInfo?.repo) {
-              outputChannel.appendLine('Attempting to auto-create a new issue...');
+          // 3. Auto-Create Issue if needed
+          if (shouldAutoCreate && githubInfo?.owner && githubInfo?.repo) {
+            outputChannel.appendLine('Attempting to auto-create a new issue...');
 
-              // 🔑 ADD PRE-VALIDATION HERE
-              const githubToken = config.get<string>('issueTrackerToken');
-              if (!githubToken) {
-                vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
-                outputChannel.appendLine('⚠️ GitHub token missing. Skipping issue creation.');
-                setGeneratingState(false);
-                return; // Or continue without issue linking
-              }
-
+            const githubToken = await resolveGitHubToken();
+            if (!githubToken) {
+              vscode.window.showWarningMessage('GitHub authentication required to create issues.');
+              outputChannel.appendLine('⚠️ GitHub authentication missing. Skipping issue creation.');
+            } else {
               try {
                 await vscode.window.withProgress(
                   {
@@ -537,23 +1226,27 @@ context.subscriptions.push(
                     title: 'Creating new issue...',
                     cancellable: true
                   },
-                  async (progress, token) => {
-                    token.onCancellationRequested(() => cts.cancel());
+                  async (progress) => {
+                    const issueTitle = finalCommitMessage.split('\n')[0].trim();
+                    const issueBody = finalCommitMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
 
-                    // Force UI to render before network calls
-                    progress.report({ message: 'Preparing issue content...' });
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                    const ISSUE_TYPE_MAP: Record<string, string> = {
+                      feat: 'enhancement',
+                      fix: 'bug',
+                      refactor: 'refactor',
+                      chore: 'chore',
+                      docs: 'docs',
+                      test: 'test'
+                    };
 
-                    const tempMessage = await generateCommitMessage(diff, [], cancellationToken);
-                    const issueTitle = tempMessage.split('\n')[0].trim();
-                    const issueBody = tempMessage.split('\n').slice(2).join('\n').trim() || 'Details from commit diff.';
-                    classification = await classifyIssueFromDiff(diff, cancellationToken);
-
+                    const projectContext = config.get<string>('projectContext');
+                    const baseLabel = ISSUE_TYPE_MAP[analysisData.type] || analysisData.type;
                     const issueLabels = Array.from(new Set([
-                      classification.type,
-                      ...classification.labels
+                      baseLabel,
+                      ...(projectContext ? [projectContext] : [])
                     ]));
 
+                    const currentUser = await getCurrentGitHubUsername();
                     progress.report({ message: `Creating: "${issueTitle.substring(0, 30)}..."` });
 
                     const newIssue = await createGitHubIssue(
@@ -561,25 +1254,19 @@ context.subscriptions.push(
                       githubInfo.repo,
                       issueTitle,
                       issueBody,
-                      issueLabels
+                      issueLabels,
+                      currentUser
                     );
 
                     if (newIssue) {
                       outputChannel.appendLine(`✓ Created issue #${newIssue.number}`);
-                      issueToLink = newIssue;
-                      progress.report({ message: `✓ Issue #${newIssue.number} created` });
-                      await new Promise(resolve => setTimeout(resolve, 400)); // Keep visible
-                      return newIssue;
-                    } else {
-                      throw new Error('GitHub API rejected the request (check token permissions)');
+                      finalCommitMessage += `\n\nCloses #${newIssue.number}`;
                     }
                   }
                 );
               } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
                 outputChannel.appendLine(`❌ Issue creation failed: ${msg}`);
-
-                // Show actionable error to user
                 if (msg.includes('ENOTFOUND') || msg.includes('ERR_INTERNET_DISCONNECTED')) {
                   vscode.window.showErrorMessage('No internet connection. Cannot create GitHub issue.');
                 } else if (msg.includes('401') || msg.includes('403')) {
@@ -589,37 +1276,13 @@ context.subscriptions.push(
                 }
               }
             }
-
-
-            else if (!githubInfo) {
-              outputChannel.appendLine('⚠️ Cannot create issue: GitHub repository info unavailable');
-            }
           }
-
-          // 3. Final Commit Message Generation
-          // If an issue was found or created, ensure the LLM only sees that one issue to link to.
-          const issuesForLLM = issueToLink ? [issueToLink] : [];
-
-          let message = await vscode.window.withProgress(
-            {
-              location: vscode.ProgressLocation.Notification,
-              title: 'Generating commit message...',
-              cancellable: true
-            },
-            async (_, token) => {
-              token.onCancellationRequested(() => cts.cancel());
-              // Pass only the relevant issue (or none) to the LLM
-              return generateCommitMessage(diff, issuesForLLM, cancellationToken);
-            }
-          );
 
           if (sourceControl) {
-            if (issueToLink && issueToLink.number) {
-              message = message + "\n #" + issueToLink.number
-            }
-            sourceControl.inputBox.value = message;
+            sourceControl.inputBox.value = finalCommitMessage;
           }
           vscode.window.showInformationMessage('Commit message generated 🎉');
+
 
           // Reset generating state to show sparkle icon again
           setGeneratingState(false);
@@ -627,7 +1290,7 @@ context.subscriptions.push(
         } catch (err: any) {
           // Reset generating state on error
           setGeneratingState(false);
-          
+
           if (err instanceof vscode.CancellationError) {
             vscode.window.showInformationMessage('Cancelled');
             return;
@@ -646,198 +1309,91 @@ async function createGitHubIssue(
   issueTitle: string,
   issueBody: string,
   issueLabels: string[],
-  assignee?: string
+  assignee?: string,
+  remoteInfo?: GitRemoteInfo
 ): Promise<GitHubIssue | undefined> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  // const githubToken = config.get<string>('issueTrackerToken');
-  const githubToken = await resolveGitHubToken();
+  const info = remoteInfo;
+  const token = await resolveGitToken(info);
+  const provider = info?.provider || 'github';
+  const apiUrl = info?.apiUrl || 'https://api.github.com';
 
-  if (!githubToken) {
-    vscode.window.showWarningMessage('GitHub token not configured. Cannot create issue.');
+  if (!token) {
+    vscode.window.showWarningMessage(`${provider.toUpperCase()} authentication required. Please sign in or provide a token in settings.`);
     return undefined;
   }
 
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
   const headers: Record<string, string> = {
-    'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'VSCode-AI-Commit-Generator',
-    'Authorization': `token ${githubToken}`,
     'Content-Type': 'application/json'
   };
 
-  const requestBody: Record<string, any> = {
-    title: issueTitle,
-    body: issueBody,
-    labels: issueLabels
-  };
+  let url = '';
+  let requestBody: Record<string, any> = {};
 
-  // Add assignee if provided
-  if (assignee) {
-    requestBody.assignees = [assignee];
+  if (provider === 'gitlab') {
+    headers['PRIVATE-TOKEN'] = token;
+    url = `${apiUrl}/projects/${encodeURIComponent(info?.fullPath || `${owner}/${repo}`)}/issues`;
+    requestBody = {
+      title: issueTitle,
+      description: issueBody,
+      labels: issueLabels.join(',')
+    };
+  } else {
+    headers['Authorization'] = `token ${token}`;
+    headers['Accept'] = 'application/vnd.github.v3+json';
+    url = `${apiUrl}/repos/${owner}/${repo}/issues`;
+    requestBody = {
+      title: issueTitle,
+      body: issueBody,
+      labels: issueLabels
+    };
+    if (assignee) {
+      requestBody.assignees = [assignee];
+    }
   }
-
-  const body = JSON.stringify(requestBody);
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body
+      body: JSON.stringify(requestBody)
     });
     if (!response.ok) {
       return undefined;
     }
     const data = await response.json() as any;
     return {
-      number: data.number,
+      number: provider === 'gitlab' ? data.iid : data.number,
       title: data.title,
-      body: data.body || ''
+      body: (provider === 'gitlab' ? data.description : data.body) || ''
     };
   } catch (err) {
     return undefined;
   }
-
-
-
-
-
-}
-// findRelevantIssue removed (imported from llm_issue_matcher.ts)
-
-
-
-async function classifyIssueFromDiff(
-  diff: string,
-  token: vscode.CancellationToken
-): Promise<IssueClassification> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  const provider = config.get<string>('provider') || 'gemini';
-  const apiKey = config.get<string>('apiKey');
-
-  if (!apiKey) throw new Error('API key not configured');
-
-  const prompt = `
-Analyze the following Git diff.
-
-Task:
-1. Determine the PRIMARY nature of this change.
-2. Choose ONE type:
-   - bug
-   - enhancement
-   - chore
-   - refactor
-   - docs
-   - test
-3. Assign GitHub-style labels.
-4. IMPORTANT:
-   - Output MUST be raw JSON
-   - Do NOT use markdown
-   - Do NOT add explanations
-   - Do NOT wrap in json
-
-Rules:
-- bug → fixes incorrect behavior, crashes, errors
-- enhancement → adds or improves functionality
-- refactor → restructures code without changing behavior
-- chore → config, tooling, cleanup, dependencies
-- docs → documentation only
-- test → tests only
-
-JSON format:
-{
-  "type": "bug | enhancement | chore | refactor | docs | test",
-  "labels": ["label1", "label2"],
-  "confidence": 0.0
 }
 
-Diff:
-${diff}
-`;
-
-  let text = '';
-
-  if (provider === 'gemini') {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: config.get<string>('geminiModel') || 'gemini-3-flash-preview'
-    });
-
-    const result = await model.generateContent(prompt);
-    text = result.response.text();
-  } else {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config.get<string>('openaiModel') || 'gpt-4o-mini',
-        temperature: 0.1,
-        messages: [
-          { role: 'system', content: 'You classify code changes.' },
-          { role: 'user', content: prompt }
-        ]
-      })
-    });
-
-    const data: any = await response.json();
-    text = data.choices?.[0]?.message?.content;
-  }
-
-  try {
-    const json = extractJson(text);
-    const parsed = JSON.parse(json);
-
-    // Strong validation (prevents garbage labels)
-    if (
-      !parsed.type ||
-      !Array.isArray(parsed.labels)
-    ) {
-      throw new Error('Invalid classification shape');
-    }
-
-    return {
-      type: parsed.type,
-      labels: parsed.labels,
-      confidence: typeof parsed.confidence === 'number'
-        ? parsed.confidence
-        : 0.5
-    };
-  } catch (err) {
-    console.warn('Classification parse failed, fallback used:', text);
-
-    return {
-      type: 'chore',
-      labels: ['chore'],
-      confidence: 0.0
-    };
-  }
-}
-
-function extractJson(text: string): string {
-  // Remove markdown fences
-  text = text.replace(/```json|```/gi, '').trim();
-
-  // Extract first JSON object defensively
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) {
-    throw new Error('No JSON object found in model response');
-  }
-
-  return match[0];
-}
-
-
-async function resolveGitHubToken(): Promise<string | undefined> {
+export async function resolveGitToken(remoteInfo?: GitRemoteInfo): Promise<string | undefined> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
 
-  // 1️⃣ Prefer VS Code GitHub auth
-  const oauthToken = await getGitHubAccessToken(false);
-  if (oauthToken) return oauthToken;
+  // 1️⃣ Dedicated self-hosted gitToken
+  const gitToken = config.get<string>('gitToken');
+  if (gitToken && gitToken.trim()) return gitToken.trim();
 
-  // 2️⃣ Fallback to manual token
-return config.get<string>('issueTrackerToken');
+  // 2️⃣ User-provided issueTrackerToken
+  const manualToken = config.get<string>('issueTrackerToken');
+  if (manualToken && manualToken.trim()) return manualToken.trim();
+
+  // 3️⃣ If provider is GitHub, fallback to VS Code GitHub auth
+  if (!remoteInfo || remoteInfo.provider === 'github' || remoteInfo.isGitHub) {
+    const oauthToken = await getGitHubAccessToken(false);
+    if (oauthToken) return oauthToken;
+  }
+
+  return undefined;
+}
+
+export async function resolveGitHubToken(): Promise<string | undefined> {
+  return resolveGitToken();
 }
 
 async function getCurrentGitHubUsername(): Promise<string | undefined> {

@@ -1,0 +1,50 @@
+{
+    "name": "Multi-Tenant Purchase Approval Router",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "purchase-approval",
+                "options": {}
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=SET search_path TO tenant_{{ $node[\"Webhook\"].json.headers[\"x-tenant-id\"] }};\nSELECT * FROM purchase_orders WHERE id = '{{ $node[\"Webhook\"].json.body.orderId }}';"
+            },
+            "name": "Fetch Tenant Data",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 1,
+            "position": [
+                500,
+                300
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "master-db-connection"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Tenant Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

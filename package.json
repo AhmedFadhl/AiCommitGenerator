@@ -1,9 +1,9 @@
 {
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
-  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "2.0.0",
-  "publisher": "AhmedFadhlAJ",
+  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, Groq, OpenRouter, Mistral, APInex, OpenAI, or DeepSeek)",
+  "version": "1.0.8",
+  "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
   "repository": {
@@ -14,9 +14,23 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other",
+    "Machine Learning",
     "SCM Providers",
-    "Machine Learning"
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "commit",
+    "git",
+    "gemini",
+    "openai",
+    "github",
+    "semantic",
+    "automation",
+    "issue matching",
+    "pro",
+    "workflow",
+    "productivity"
   ],
   "activationEvents": [
     "onView:scm"
@@ -42,6 +56,31 @@
       {
         "command": "ai-commit-generator.githubLogin",
         "title": "AI Commit Generator: Sign in to GitHub"
+      },
+      {
+        "command": "ai-commit-generator.createAndMergePR",
+        "title": "Auto-Deploy (Create & Merge PR)",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "ai-commit-generator.selectModel",
+        "title": "Select AI Model",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "ai-commit-generator.configureFeatures",
+        "title": "AI Commit: Configure Features & Toggles",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ai-commit-generator.signInWithGoogle",
+        "title": "AI Commit: Sign in with Google (AI Studio)",
+        "icon": "$(account)"
+      },
+      {
+        "command": "ai-commit-generator.signOutGoogle",
+        "title": "AI Commit: Sign out from Google Account",
+        "icon": "$(sign-out)"
       }
     ],
     "configuration": {
@@ -52,23 +91,97 @@
           "default": "gemini",
           "enum": [
             "gemini",
+            "groq",
+            "openrouter",
+            "github",
+            "mistral",
+            "apinex",
             "openai",
-            "openrouter"
+            "deepseek",
+            "ollama"
           ],
           "description": "AI provider to use for commit message generation."
         },
         "aiCommitGenerator.geminiModel": {
           "type": "string",
-          "default": "gemini-3-flash-preview",
+          "default": "gemini-3.1-flash-lite-preview",
           "enum": [
             "gemini-2.0-flash",
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-2.5-pro",
             "gemini-3-flash-preview",
-            "gemini-1.5-pro"
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-3.1-flash-lite-preview",
+            "custom"
           ],
           "description": "Gemini model to use."
+        },
+        "aiCommitGenerator.groqModel": {
+          "type": "string",
+          "default": "openai/gpt-oss-120b",
+          "enum": [
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b",
+            "allam-2-7b",
+            "custom"
+          ],
+          "description": "Groq Cloud model to use (Free & ultra-fast LPU inference: 450–1000 tokens/sec)."
+        },
+        "aiCommitGenerator.githubModel": {
+          "type": "string",
+          "default": "openai/gpt-4.1-mini",
+          "enum": [
+            "openai/gpt-4.1-mini",
+            "openai/gpt-4o-mini",
+            "openai/gpt-4.1",
+            "deepseek/DeepSeek-V3-0324",
+            "meta/Llama-3.3-70B-Instruct",
+            "mistral-ai/Codestral-2501",
+            "custom"
+          ],
+          "description": "GitHub Models identifier to use (Free with GitHub account/PAT)."
+        },
+        "aiCommitGenerator.mistralModel": {
+          "type": "string",
+          "default": "codestral-latest",
+          "enum": [
+            "codestral-latest",
+            "mistral-small-latest",
+            "mistral-large-latest",
+            "ministral-8b-latest",
+            "custom"
+          ],
+          "description": "Mistral Studio / Codestral model to use."
+        },
+        "aiCommitGenerator.apinexModel": {
+          "type": "string",
+          "default": "free/deepseek-v4.1-flash",
+          "enum": [
+            "free/deepseek-v4.1-flash",
+            "free/glm-5.3-flash",
+            "free/gemini-4-hydrogen",
+            "free/gpt-6-luna",
+            "free/qwen-3.8-max",
+            "free/minimax-m3.1-flash",
+            "free/claude-sonnet-4.6",
+            "claude-sonnet-5.5",
+            "deepseek-v4.1-flash",
+            "custom"
+          ],
+          "description": "APInex (apinex.bond) model to use."
+        },
+        "aiCommitGenerator.ollamaModel": {
+          "type": "string",
+          "default": "gemma2:9b",
+          "description": "Local model name for Ollama (e.g., gemma2:9b, llama3)."
+        },
+        "aiCommitGenerator.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Endpoint for the local Ollama instance."
         },
         "aiCommitGenerator.openaiModel": {
           "type": "string",
@@ -76,27 +189,155 @@
           "enum": [
             "gpt-4o-mini",
             "gpt-4o",
-            "gpt-3.5-turbo"
+            "gpt-3.5-turbo",
+            "custom"
           ],
           "description": "OpenAI model to use."
         },
+        "aiCommitGenerator.deepseekModel": {
+          "type": "string",
+          "default": "deepseek-chat",
+          "enum": [
+            "deepseek-chat",
+            "deepseek-coder",
+            "custom"
+          ],
+          "description": "DeepSeek model to use."
+        },
         "aiCommitGenerator.openrouterModel": {
           "type": "string",
-          "default": "qwen/qwen3-coder:free",
+          "default": "openrouter/free",
           "enum": [
+            "openrouter/free",
+            "nvidia/nemotron-3.5-lightning:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "google/gemma-4-31b-it:free",
+            "google/gemma-4-26b-a4b-it:free",
+            "inclusionai/ling-3.2-flash:free",
+            "baidu/ernie-5.5-flash-preview:free",
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             "qwen/qwen3-coder:free",
             "openai/gpt-oss-20b:free",
             "nvidia/nemotron-nano-9b-v2:free",
             "alibaba/tongyi-deepresearch-30b-a3b:free",
             "amazon/nova-2-lite-v1:free",
             "mistralai/devstral-2512:free",
-            "openai/gpt-oss-120b:free"
+            "openai/gpt-oss-120b:free",
+            "custom"
           ],
-          "description": "OpenRouter model to use."
+          "description": "OpenRouter model to use ('openrouter/free' auto-routes across active zero-cost models)."
+        },
+        "aiCommitGenerator.customModel": {
+          "type": "string",
+          "default": "",
+          "description": "Active custom AI model identifier. Used when a provider's model is set to 'custom', or as an immediate override."
+        },
+        "aiCommitGenerator.maxTokens": {
+          "type": "integer",
+          "default": 2000,
+          "minimum": 100,
+          "maximum": 16000,
+          "description": "Maximum token limit for model completions (prevents response truncation in multi-style commits)."
+        },
+        "aiCommitGenerator.maxRetries": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum retry attempts if commit message generation fails validation or parsing."
+        },
+        "aiCommitGenerator.customGeminiModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom Gemini models list. Add any custom or newly released Gemini model identifiers."
+        },
+        "aiCommitGenerator.customOpenaiModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom OpenAI models list."
+        },
+        "aiCommitGenerator.customDeepseekModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom DeepSeek models list."
+        },
+        "aiCommitGenerator.customOpenrouterModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom OpenRouter models list."
+        },
+        "aiCommitGenerator.customGroqModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom Groq Cloud models list."
+        },
+        "aiCommitGenerator.customGithubModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom GitHub Models list."
+        },
+        "aiCommitGenerator.customMistralModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom Mistral Studio / Codestral models list."
+        },
+        "aiCommitGenerator.customApinexModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom APInex (apinex.bond) models list."
         },
         "aiCommitGenerator.apiKey": {
           "type": "string",
-          "description": "API key for the selected AI provider (Gemini, OpenAI, or OpenRouter). ⚠️ Do not share or commit this key!"
+          "description": "Default API key for the selected AI provider (or fallback when provider-specific key is empty). ⚠️ Do not share or commit this key!"
+        },
+        "aiCommitGenerator.groqApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated Groq Cloud API key (gsk_...). Falls back to aiCommitGenerator.apiKey if empty."
+        },
+        "aiCommitGenerator.githubModelsApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated GitHub Models PAT (with models:read permission). Automatically falls back to your signed-in GitHub account or gitToken if empty."
+        },
+        "aiCommitGenerator.mistralApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated Mistral Studio / Codestral API key. Falls back to aiCommitGenerator.apiKey if empty."
+        },
+        "aiCommitGenerator.apinexApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated APInex (apinex.bond) API key (sk-apx...). Falls back to aiCommitGenerator.apiKey if empty."
+        },
+        "aiCommitGenerator.openrouterApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated OpenRouter API key (sk-or-...). Falls back to aiCommitGenerator.apiKey if empty."
         },
         "aiCommitGenerator.issueTracker": {
           "type": "string",
@@ -159,6 +400,77 @@
           "type": "boolean",
           "default": true,
           "description": "Include issue reference in commit message"
+        },
+        "aiCommitGenerator.projectContext": {
+          "type": "string",
+          "default": "",
+          "description": "The name of the project/context to associate with issues (used as a label or prefix)."
+        },
+        "aiCommitGenerator.googleAuthMode": {
+          "type": "string",
+          "enum": [
+            "Account",
+            "ApiKey"
+          ],
+          "default": "ApiKey",
+          "description": "Authentication method for Google AI Studio / Gemini: 'Account' (OAuth PKCE with free daily quota) or 'ApiKey' (traditional static key)."
+        },
+        "aiCommitGenerator.enableMultiStyle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable 3 commit style variations (Concise, Detailed, Gitmoji) presented in an interactive QuickPick."
+        },
+        "aiCommitGenerator.enableSecretScanner": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pre-scan staged git diffs for leaked secrets, tokens, or credentials before dispatching to AI models."
+        },
+        "aiCommitGenerator.enableSmartDiffFilter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically exclude lockfiles (package-lock.json, yarn.lock) and compiled assets from AI diff prompts to conserve tokens."
+        },
+        "aiCommitGenerator.gitProvider": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "github",
+            "github-enterprise",
+            "gitlab",
+            "gitea"
+          ],
+          "default": "auto",
+          "description": "Git hosting provider for Pull/Merge Requests and issue tracking. 'auto' detects automatically from remote URL."
+        },
+        "aiCommitGenerator.customGitApiUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom base API URL for self-hosted Git instances (e.g., https://git.company.com/api/v3 for GitHub Enterprise, https://gitlab.company.com/api/v4 for GitLab, or https://gitea.company.com/api/v1 for Gitea)."
+        },
+        "aiCommitGenerator.gitToken": {
+          "type": "string",
+          "default": "",
+          "description": "Personal Access Token (PAT) for self-hosted Git providers (GitLab, Gitea, or GitHub Enterprise)."
+        },
+        "aiCommitGenerator.autoDeployMergeMethod": {
+          "type": "string",
+          "enum": [
+            "squash",
+            "merge",
+            "rebase"
+          ],
+          "default": "merge",
+          "description": "Preferred GitHub merge strategy for Auto-Deploy (squash, merge, or rebase)."
+        },
+        "aiCommitGenerator.commitLanguage": {
+          "type": "string",
+          "enum": [
+            "en",
+            "ar",
+            "bilingual"
+          ],
+          "default": "en",
+          "description": "Preferred language for generated commit messages (English, Arabic, or Bilingual)."
         }
       }
     },
@@ -177,10 +489,22 @@
           "icon": "$(sync~spin)"
         },
         {
+          "command": "ai-commit-generator.selectModel",
+          "when": "scmProvider == git",
+          "group": "navigation",
+          "icon": "$(gear)"
+        },
+        {
           "command": "ai-commit-generator.createIssueFromChanges",
           "when": "scmProvider == git",
           "group": "navigation",
           "icon": "$(plus)"
+        },
+        {
+          "command": "ai-commit-generator.createAndMergePR",
+          "when": "scmProvider == git",
+          "group": "navigation",
+          "icon": "$(git-pull-request)"
         }
       ]
     }
