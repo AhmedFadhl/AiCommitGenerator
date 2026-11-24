@@ -85,46 +85,147 @@ export async function getRemoteUrl(repoRoot: string): Promise<string | undefined
   return undefined;
 }
 
+export type GitProviderType = 'github' | 'github-enterprise' | 'gitlab' | 'gitea';
+
+export interface GitRemoteInfo {
+  host: string;
+  owner: string;
+  repo: string;
+  fullPath: string;
+  isGitHub: boolean;
+  provider: GitProviderType;
+  apiUrl: string;
+}
+
+export function parseGitRemoteUrl(url: string): GitRemoteInfo | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+
+  let host = '';
+  let path = '';
+
+  // 1. SSH scp-like syntax: [user@]host:owner/repo[.git]
+  const scpMatch = trimmed.match(/^(?:[\w-]+@)?([^:/]+):(.+?)(?:\.git)?$/);
+  if (scpMatch && !trimmed.includes('://')) {
+    host = scpMatch[1];
+    path = scpMatch[2].replace(/^\/+|\/+$/g, '');
+  } else {
+    // 2. URL syntax: http(s):// or ssh:// or git://
+    const urlMatch = trimmed.match(/^(?:https?|ssh|git):\/\/(?:[\w-]+@)?([^\/:]+)(?::\d+)?\/(.+?)(?:\.git)?$/);
+    if (urlMatch) {
+      host = urlMatch[1];
+      path = urlMatch[2].replace(/^\/+|\/+$/g, '');
+    }
+  }
+
+  if (!host || !path) {
+    return undefined;
+  }
+
+  const parts = path.split('/');
+  const repo = parts[parts.length - 1];
+  const owner = parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : parts[0];
+  const fullPath = path;
+  const isGitHub = host.toLowerCase() === 'github.com';
+
+  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
+  const configuredProvider = config.get<string>('gitProvider', 'auto');
+  const customApiUrl = (config.get<string>('customGitApiUrl') || '').trim().replace(/\/+$/, '');
+
+  let provider: GitProviderType = 'github';
+  if (configuredProvider && configuredProvider !== 'auto') {
+    provider = configuredProvider as GitProviderType;
+  } else {
+    const lowerHost = host.toLowerCase();
+    if (isGitHub) {
+      provider = 'github';
+    } else if (lowerHost.includes('gitlab')) {
+      provider = 'gitlab';
+    } else if (lowerHost.includes('gitea') || lowerHost.includes('forgejo')) {
+      provider = 'gitea';
+    } else {
+      provider = 'github-enterprise';
+    }
+  }
+
+  let apiUrl = '';
+  if (customApiUrl) {
+    apiUrl = customApiUrl;
+  } else {
+    if (provider === 'github') {
+      apiUrl = 'https://api.github.com';
+    } else if (provider === 'gitlab') {
+      apiUrl = `https://${host}/api/v4`;
+    } else if (provider === 'gitea') {
+      apiUrl = `https://${host}/api/v1`;
+    } else {
+      apiUrl = `https://${host}/api/v3`;
+    }
+  }
+
+  return {
+    host,
+    owner,
+    repo,
+    fullPath,
+    isGitHub,
+    provider,
+    apiUrl
+  };
+}
+
 export function parseGitHubUrl(url: string): { owner: string; repo: string } | undefined {
-  // Matches:
-  // https://github.com/owner/repo.git
-  // git@github.com:owner/repo.git
-  const regex = /(?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\/.]+)(?:\.git)?/;
-  const match = url.match(regex);
-  if (match) {
-    return { owner: match[1], repo: match[2] };
+  const info = parseGitRemoteUrl(url);
+  if (info) {
+    return { owner: info.owner, repo: info.repo };
   }
   return undefined;
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              GITHUB UTILITIES                              */
+/*                              GIT HOSTING UTILITIES                         */
 /* -------------------------------------------------------------------------- */
 
-async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIssue[]> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  // const githubToken = config.get<string>('issueTrackerToken');
-  const githubToken = await resolveGitHubToken();
+async function fetchGitHubIssues(owner: string, repo: string, remoteInfo?: GitRemoteInfo): Promise<GitHubIssue[]> {
+  const info = remoteInfo;
+  const token = await resolveGitToken(info);
+  const provider = info?.provider || 'github';
+  const apiUrl = info?.apiUrl || 'https://api.github.com';
+
   const headers: Record<string, string> = {
-    'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'VSCode-AI-Commit-Generator'
   };
 
-  if (githubToken) {
-    headers['Authorization'] = `token ${githubToken}`;
+  if (provider === 'gitlab') {
+    if (token) headers['PRIVATE-TOKEN'] = token;
+  } else {
+    headers['Accept'] = 'application/vnd.github.v3+json';
+    if (token) headers['Authorization'] = `token ${token}`;
   }
 
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=50`;
+  const url = provider === 'gitlab'
+    ? `${apiUrl}/projects/${encodeURIComponent(info?.fullPath || `${owner}/${repo}`)}/issues?state=opened&per_page=50`
+    : `${apiUrl}/repos/${owner}/${repo}/issues?state=open&per_page=50`;
 
   try {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        console.warn('GitHub API access limited. Please provide a githubToken in settings for higher limits.');
+        console.warn(`${provider.toUpperCase()} API access limited or unauthorized. Please provide a gitToken in settings.`);
       }
       return [];
     }
     const issues = await response.json() as any[];
+    if (!Array.isArray(issues)) return [];
+
+    if (provider === 'gitlab') {
+      return issues.map(issue => ({
+        number: issue.iid,
+        title: issue.title,
+        body: issue.description || ''
+      }));
+    }
+
     return issues
       .filter(issue => !issue.pull_request) // Filter out pull requests
       .map(issue => ({
@@ -133,7 +234,7 @@ async function fetchGitHubIssues(owner: string, repo: string): Promise<GitHubIss
         body: issue.body || ''
       }));
   } catch (err) {
-    console.error('Error fetching GitHub issues:', err);
+    console.error(`Error fetching ${provider} issues:`, err);
     return [];
   }
 }
@@ -888,12 +989,17 @@ export function activate(context: vscode.ExtensionContext) {
               const result = await generateCommitMessage(diff, includeIssueInCommit ? issues : [], cancellationToken);
               finalCommitMessage = result.commitMessage;
               analysisData = result.diffAnalysis;
+
+              // Immediately populate Source Control input box for instant UI response
+              if (sourceControl) {
+                sourceControl.inputBox.value = finalCommitMessage;
+              }
               
               if (result.issueAnalysis && result.issueAnalysis.issues) {
                 linkedIssuesCount = result.issueAnalysis.issues.filter((i: any) => i.relation !== 'none' && i.confidence >= 0.6).length;
               }
               
-              shouldAutoCreate = includeIssueInCommit && autoCreateIssues && linkedIssuesCount === 0 && result.diffAnalysis.shouldCreateIssue;
+              shouldAutoCreate = includeIssueInCommit && autoCreateIssues && linkedIssuesCount === 0 && !!result.diffAnalysis?.shouldCreateIssue;
             }
           );
 
@@ -996,80 +1102,91 @@ async function createGitHubIssue(
   issueTitle: string,
   issueBody: string,
   issueLabels: string[],
-  assignee?: string
+  assignee?: string,
+  remoteInfo?: GitRemoteInfo
 ): Promise<GitHubIssue | undefined> {
-  const config = vscode.workspace.getConfiguration('aiCommitGenerator');
-  // const githubToken = config.get<string>('issueTrackerToken');
-  const githubToken = await resolveGitHubToken();
+  const info = remoteInfo;
+  const token = await resolveGitToken(info);
+  const provider = info?.provider || 'github';
+  const apiUrl = info?.apiUrl || 'https://api.github.com';
 
-  if (!githubToken) {
-    vscode.window.showWarningMessage('GitHub authentication required. Please sign in or provide a token.');
+  if (!token) {
+    vscode.window.showWarningMessage(`${provider.toUpperCase()} authentication required. Please sign in or provide a token in settings.`);
     return undefined;
   }
 
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues`;
   const headers: Record<string, string> = {
-    'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'VSCode-AI-Commit-Generator',
-    'Authorization': `token ${githubToken}`,
     'Content-Type': 'application/json'
   };
 
-  const requestBody: Record<string, any> = {
-    title: issueTitle,
-    body: issueBody,
-    labels: issueLabels
-  };
+  let url = '';
+  let requestBody: Record<string, any> = {};
 
-  // Add assignee if provided
-  if (assignee) {
-    requestBody.assignees = [assignee];
+  if (provider === 'gitlab') {
+    headers['PRIVATE-TOKEN'] = token;
+    url = `${apiUrl}/projects/${encodeURIComponent(info?.fullPath || `${owner}/${repo}`)}/issues`;
+    requestBody = {
+      title: issueTitle,
+      description: issueBody,
+      labels: issueLabels.join(',')
+    };
+  } else {
+    headers['Authorization'] = `token ${token}`;
+    headers['Accept'] = 'application/vnd.github.v3+json';
+    url = `${apiUrl}/repos/${owner}/${repo}/issues`;
+    requestBody = {
+      title: issueTitle,
+      body: issueBody,
+      labels: issueLabels
+    };
+    if (assignee) {
+      requestBody.assignees = [assignee];
+    }
   }
-
-  const body = JSON.stringify(requestBody);
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body
+      body: JSON.stringify(requestBody)
     });
     if (!response.ok) {
       return undefined;
     }
     const data = await response.json() as any;
     return {
-      number: data.number,
+      number: provider === 'gitlab' ? data.iid : data.number,
       title: data.title,
-      body: data.body || ''
+      body: (provider === 'gitlab' ? data.description : data.body) || ''
     };
   } catch (err) {
     return undefined;
   }
-
-
-
-
-
 }
-// findRelevantIssue removed (imported from llm_issue_matcher.ts)
 
-
-
-
-
-export async function resolveGitHubToken(): Promise<string | undefined> {
+export async function resolveGitToken(remoteInfo?: GitRemoteInfo): Promise<string | undefined> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
 
-  // 1️⃣ User-provided token takes priority (solves org repo issues)
-  const manualToken = config.get<string>('issueTrackerToken');
-  if (manualToken) return manualToken;
+  // 1️⃣ Dedicated self-hosted gitToken
+  const gitToken = config.get<string>('gitToken');
+  if (gitToken && gitToken.trim()) return gitToken.trim();
 
-  // 2️⃣ Fallback to VS Code GitHub auth
-  const oauthToken = await getGitHubAccessToken(false);
-  if (oauthToken) return oauthToken;
+  // 2️⃣ User-provided issueTrackerToken
+  const manualToken = config.get<string>('issueTrackerToken');
+  if (manualToken && manualToken.trim()) return manualToken.trim();
+
+  // 3️⃣ If provider is GitHub, fallback to VS Code GitHub auth
+  if (!remoteInfo || remoteInfo.provider === 'github' || remoteInfo.isGitHub) {
+    const oauthToken = await getGitHubAccessToken(false);
+    if (oauthToken) return oauthToken;
+  }
 
   return undefined;
+}
+
+export async function resolveGitHubToken(): Promise<string | undefined> {
+  return resolveGitToken();
 }
 
 async function getCurrentGitHubUsername(): Promise<string | undefined> {

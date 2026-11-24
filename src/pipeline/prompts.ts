@@ -202,41 +202,31 @@ export const singlePassCommitPrompt = (
   issues: GitHubIssueBasic[] = [],
   language: CommitLanguage = "en"
 ) => {
-  const languageInstruction = 
-    language === 'ar' ? 'LANGUAGE: Write the commit message description and body strictly in clear, professional Arabic (مثال: feat: إضافة ميزة تسجيل الدخول).' :
-    language === 'bilingual' ? 'LANGUAGE: Write the commit subject in English, followed by an Arabic explanation in the body.' :
-    'LANGUAGE: Write the commit message in English.';
+  let issuesContext = '';
+  if (issues.length > 0) {
+    issuesContext = '\nISSUE LINKING:\n' + issues.map(i =>
+      `- #${i.number}: ${i.title}`
+    ).join('\n') + '\n- If the changes directly fix an issue, include "Closes #<ID>" in the body.\n- If the changes are related, include "Relates to #<ID>".\n';
+  }
 
-  const issueContext = issues.length > 0
-    ? `\nOPEN ISSUES:\n${issues.map(i => `#${i.number}: ${i.title}`).join('\n')}\nIf the diff directly addresses or resolves any of the above issues, append 'Closes #<number>' or 'Relates to #<number>' at the very end of the message.\n`
-    : '';
+  const langInstruction =
+    language === 'ar' ? '\n- Language: Write description and body in Arabic.' :
+    language === 'bilingual' ? '\n- Language: Subject in English, body in Arabic.' : '';
 
   return `
-You are an expert Git commit message writer.
+Generate a semantic Git commit message based on the diff below.
 
-Analyze the provided git diff and generate ONE semantic, conventional Git commit message directly.
-
-${languageInstruction}
-
-FORMAT:
-<type>: <subject>
-
-<body>
-
-<issue references if applicable>
-
-RULES:
-- SUBJECT: Start with exactly one of: feat:, fix:, refactor:, chore:, docs:, test:, perf:, build:, ci:, style:
-- Use imperative mood, concise, under 72 characters.
-- Do NOT end the subject line with a period.
-- BODY: Concise explanation of WHAT and WHY.
-${issueContext}
-OUTPUT RULES:
-- Return ONLY the commit message itself.
-- Do NOT output JSON, markdown fences, commentary, or preambles.
-
-DIFF:
+Rules:
+- Imperative mood (e.g., "Add feature" not "Added feature")
+- Prefix: feat | fix | refactor | chore | docs | test | perf | build | ci | style (scopes like feat(auth): or fix(ui): are welcome)
+- 50-72 char subject line
+- Blank line
+- Concise body explaining WHAT and WHY${langInstruction}
+${issuesContext}
+Diff:
 ${diff}
+
+Commit message:
 `.trim();
 };
 

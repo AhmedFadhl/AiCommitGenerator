@@ -27,7 +27,7 @@ export function getPipelineConfig(resourceUri?: vscode.Uri): PipelineConfig {
   const googleAuthMode: GoogleAuthMode = rawAuthMode === 'Account' ? 'Account' : 'ApiKey';
 
   const enableMultiStyle = config.get<boolean>('enableMultiStyle', false) === true;
-  const enableSecretScanner = config.get<boolean>('enableSecretScanner', true) !== false;
+  const enableSecretScanner = config.get<boolean>('enableSecretScanner', false) === true;
   const enableSmartDiffFilter = config.get<boolean>('enableSmartDiffFilter', true) !== false;
 
   const rawLang = config.get<string>('commitLanguage', 'en');

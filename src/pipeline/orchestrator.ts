@@ -62,9 +62,9 @@ export class CommitPipeline {
       const durationMs = Date.now() - startTime;
       this.log(`Fast-Path commit message generated in ${durationMs}ms! ✓`);
 
-      const typePrefix = finalCommit.split(':')[0].trim().toLowerCase();
+      const coreType = (finalCommit.match(/^(feat|fix|refactor|chore|docs|test|perf|build|ci|style|revert)/i)?.[1] || 'feat').toLowerCase();
       const diffAnalysis: DiffAnalysis = {
-        type: (typePrefix as any) || 'feat',
+        type: (coreType as any) || 'feat',
         summary: finalCommit.split('\n')[0].trim(),
         reason: null,
         impact: null,
@@ -245,7 +245,21 @@ export class CommitPipeline {
   }
 
   private sanitizeCommitFallback(raw: string): string {
-    const cleaned = raw.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+    if (!raw || raw.trim().length === 0) {
+      return 'chore: update project files';
+    }
+
+    let cleaned = raw
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .replace(/^```[a-zA-Z]*\n?/, '')
+      .replace(/\n?```$/, '')
+      .trim();
+
+    // Strip conversational preambles
+    cleaned = cleaned
+      .replace(/^(Here (is|are) (the|a|your) commit message:?|Commit message:?|Suggested commit:?)\s*/i, '')
+      .trim();
+
     const lines = cleaned.split('\n');
     let subject = lines[0].trim();
 
@@ -255,7 +269,7 @@ export class CommitPipeline {
     }
 
     if (subject.endsWith('.')) {
-      subject = subject.slice(0, -1);
+      subject = subject.slice(0, -1).trim();
     }
 
     if (subject.length > 72) {

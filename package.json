@@ -2,7 +2,7 @@
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
   "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
@@ -305,6 +305,28 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically exclude lockfiles (package-lock.json, yarn.lock) and compiled assets from AI diff prompts to conserve tokens."
+        },
+        "aiCommitGenerator.gitProvider": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "github",
+            "github-enterprise",
+            "gitlab",
+            "gitea"
+          ],
+          "default": "auto",
+          "description": "Git hosting provider for Pull/Merge Requests and issue tracking. 'auto' detects automatically from remote URL."
+        },
+        "aiCommitGenerator.customGitApiUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom base API URL for self-hosted Git instances (e.g., https://git.company.com/api/v3 for GitHub Enterprise, https://gitlab.company.com/api/v4 for GitLab, or https://gitea.company.com/api/v1 for Gitea)."
+        },
+        "aiCommitGenerator.gitToken": {
+          "type": "string",
+          "default": "",
+          "description": "Personal Access Token (PAT) for self-hosted Git providers (GitLab, Gitea, or GitHub Enterprise)."
         },
         "aiCommitGenerator.autoDeployMergeMethod": {
           "type": "string",

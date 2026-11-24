@@ -68,10 +68,27 @@ export async function invokeProvider(
     : 'You write concise, semantic Git commit messages.';
 
   if (provider === 'gemini') {
-    const authMode = config.get<string>('googleAuthMode', 'Account');
+    const authMode = pipelineConfig.googleAuthMode;
     const modelName = getActiveModelForProvider('gemini', config);
 
-    // 1. Account Mode (Google OAuth 2.0 PKCE with Bearer token)
+    // 1. ApiKey Mode: If apiKey is present, use GoogleGenerativeAI directly (fast, stable, and proven in 1.0.2)
+    if (authMode === 'ApiKey' || (apiKey && authMode !== 'Account')) {
+      if (!apiKey) {
+        throw new Error('Please configure a Google Gemini API key in extension settings (aiCommitGenerator.apiKey).');
+      }
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        generationConfig: expectJson ? {
+          responseMimeType: "application/json",
+          maxOutputTokens: maxTokens
+        } : undefined
+      });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    }
+
+    // 2. Account Mode (Google OAuth 2.0 PKCE with Bearer token)
     if (authMode === 'Account') {
       const authService = GoogleAuthService.getInstance();
       let accessToken = await authService.getValidAccessToken();
@@ -98,23 +115,23 @@ export async function invokeProvider(
       if (accessToken) {
         return await callGeminiWithBearer(modelName, prompt, accessToken, expectJson, authService, 0, maxTokens);
       }
-    }
 
-    // 2. ApiKey Mode or fallback
-    if (!apiKey) {
-      throw new Error('No Google authentication found. Please sign in with Google or configure an API key.');
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: modelName,
-      generationConfig: {
-        responseMimeType: expectJson ? "application/json" : undefined,
-        maxOutputTokens: maxTokens
+      // Fallback to API Key if present
+      if (apiKey) {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: expectJson ? {
+            responseMimeType: "application/json",
+            maxOutputTokens: maxTokens
+          } : undefined
+        });
+        const result = await model.generateContent(prompt);
+        return result.response.text();
       }
-    });
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    }
+
+    throw new Error('No Google authentication found. Please sign in with Google or configure an API key.');
   }
 
   if (provider === 'openai') {
