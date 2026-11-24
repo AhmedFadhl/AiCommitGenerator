@@ -21,3 +21,6 @@ tsconfig.json
 resources/*.sketch
 results/**
 tmp/**
+docs/**
+.graphify/**
+*.vsix

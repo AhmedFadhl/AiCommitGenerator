@@ -2358,3 +2358,653 @@ TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
 
 #### 6. 🧠 DTO & Interface Contracts
 Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-1.1: [Interrogation] Socratic Inquiry & Edge Cases: WF-1: Codebase Reality & AST Extraction for Multi-
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:07:08.704Z
+
+#### 1. 🎯 Technical Scope
+Resolved Socratic edge-case analysis for WF-1: customModel override is scoped strictly to 'custom' preset selection, and all API keys are trimmed in getPipelineConfig().
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved Socratic edge-case analysis for WF-1: customModel override is scoped strictly to 'custom' preset selection, and all API keys are trimmed in getPipelineConfig().
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.2: [Interrogation] Socratic Inquiry & Edge Cases: WF-2: Free & High-Speed LLM Provider API Contracts
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:07:11.025Z
+
+#### 1. 🎯 Technical Scope
+Resolved Socratic edge-case analysis for WF-2: HTTP 401/402/403 errors short-circuit the retry loop immediately with actionable server error messages, and openrouter/free is set as the default zero-cost auto-router.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved Socratic edge-case analysis for WF-2: HTTP 401/402/403 errors short-circuit the retry loop immediately with actionable server error messages, and openrouter/free is set as the default zero-cost auto-router.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.2: [Interrogation] Socratic Inquiry & Edge Cases: WF-3: Unified Multi-Provider Architecture, GitHub
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:07:12.569Z
+
+#### 1. 🎯 Technical Scope
+Resolved Socratic edge-case analysis for WF-3: Publisher-prefixed model IDs on GitHub Models and OpenRouter are supported in reasoning detection, and custom<Provider>Models keys are deterministically mapped across all 8 providers.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved Socratic edge-case analysis for WF-3: Publisher-prefixed model IDs on GitHub Models and OpenRouter are supported in reasoning detection, and custom<Provider>Models keys are deterministically mapped across all 8 providers.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-1.2.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-1.2: [Interrogation] Proactive Innovation & Smart Features: WF-1: Codebase Reality & AST Extraction for Multi-'
+- **Initiator:** sora_reflex ➔ **Target:** 🛡️ Security & QA Lead
+- **Resolved At:** 2026-11-24T01:08:01.338Z
+
+#### 1. 🎯 Technical Scope
+Verified HTTPS endpoint pinning, silent non-interactive getGitHubAccessToken(false) lookup, and strict bearer token redaction for GitHub Models.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Verified HTTPS endpoint pinning, silent non-interactive getGitHubAccessToken(false) lookup, and strict bearer token redaction for GitHub Models.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.1.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-2.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-2: Free & High-Speed LLM Provider API Contracts, Models & Rate-Limit Resilience''
+- **Initiator:** sora_reflex ➔ **Target:** 🧐 Strict Critic / Devil's Advocate
+- **Resolved At:** 2026-11-24T01:08:02.767Z
+
+#### 1. 🎯 Technical Scope
+Verified strict HTTPS pinning, 300-char error payload truncation with regex token redaction, and non-retryable 401/402/403 termination.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Verified strict HTTPS pinning, 300-char error payload truncation with regex token redaction, and non-retryable 401/402/403 termination.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.3.1: [Ambiguity Reflex] unaddressed_edge_cases: Address gap in 'WF-2.3: [Interrogation] Proactive Innovation & Smart Features: WF-2: Free & High-Speed LLM Provider API Contracts'
+- **Initiator:** sora_reflex ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:08:03.669Z
+
+#### 1. 🎯 Technical Scope
+Verified regex stripping for unclosed or partial <think> blocks and soft sanitization fallback on reasoning models.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Verified regex stripping for unclosed or partial <think> blocks and soft sanitization fallback on reasoning models.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.1.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-3.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX''
+- **Initiator:** sora_reflex ➔ **Target:** 🧐 Strict Critic / Devil's Advocate
+- **Resolved At:** 2026-11-24T01:08:04.708Z
+
+#### 1. 🎯 Technical Scope
+Verified isolated per-provider API key resolution in PipelineConfig eliminating cross-provider credential leakage.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Verified isolated per-provider API key resolution in PipelineConfig eliminating cross-provider credential leakage.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.3.1: [Ambiguity Reflex] unaddressed_edge_cases: Address gap in 'WF-3.3: [Interrogation] Proactive Innovation & Smart Features: WF-3: Unified Multi-Provider Architecture, GitHub'
+- **Initiator:** sora_reflex ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:08:06.094Z
+
+#### 1. 🎯 Technical Scope
+Verified sequential awaited config.update calls for aiProvider and <provider>Model before updateStatusBar().
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Verified sequential awaited config.update calls for aiProvider and <provider>Model before updateStatusBar().
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-1.2: [Interrogation] Proactive Innovation & Smart Features: WF-1: Codebase Reality & AST Extraction for Multi-
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 💡 Out-of-the-Box Innovator
+- **Resolved At:** 2026-11-24T01:08:38.238Z
+
+#### 1. 🎯 Technical Scope
+Resolved proactive innovation for WF-1.2: Zero-config GitHub Models token reuse via getGitHubAccessToken(false) and provider speed/free tier badges in QuickPick.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved proactive innovation for WF-1.2: Zero-config GitHub Models token reuse via getGitHubAccessToken(false) and provider speed/free tier badges in QuickPick.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-1.3: [Ambiguity Reflex] unaddressed_edge_cases: Address gap in 'WF-1: Codebase Reality & AST Extraction for Multi-Provider LLM Pipeline'
+- **Initiator:** sora_reflex ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:08:39.217Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-1.3 edge cases, PipelineConfig DTO schema normalization, and HTTPS/token redaction security controls.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-1.3 edge cases, PipelineConfig DTO schema normalization, and HTTPS/token redaction security controls.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-1.4: [Ambiguity Reflex] unaddressed_edge_cases: Address gap in 'WF-1: Codebase Reality & AST Extraction for Multi-Provider LLM Pipeline'
+- **Initiator:** sora_reflex ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:08:40.455Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-1.4 network timeout and response payload validation with OpenAIChatCompletion DTO contracts.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-1.4 network timeout and response payload validation with OpenAIChatCompletion DTO contracts.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-2: Free & High-Speed LLM Provider API Contracts, Models & Rate-Limit Resilience'
+- **Initiator:** sora_reflex ➔ **Target:** 🛡️ Security & QA Lead
+- **Resolved At:** 2026-11-24T01:08:42.099Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-2.1 security perimeter: strict HTTPS endpoint pinning, token redaction in logs/errors, and least-privilege PAT guidance.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-2.1 security perimeter: strict HTTPS endpoint pinning, token redaction in logs/errors, and least-privilege PAT guidance.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.3: [Interrogation] Proactive Innovation & Smart Features: WF-2: Free & High-Speed LLM Provider API Contracts
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 💡 Out-of-the-Box Innovator
+- **Resolved At:** 2026-11-24T01:08:43.840Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-2.3 innovation: openrouter/free zero-cost load balancer default and universal <think> block stripping.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-2.3 innovation: openrouter/free zero-cost load balancer default and universal <think> block stripping.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.4: [Ambiguity Reflex] missing_contract_or_dto: Address gap in 'WF-2: Free & High-Speed LLM Provider API Contracts, Models & Rate-Limit Resilience'
+- **Initiator:** sora_reflex ➔ **Target:** 📐 Lead Systems Analyst
+- **Resolved At:** 2026-11-24T01:08:44.961Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-2.4 TypeScript DTO contracts (AIProviderId, OpenAIProviderDescriptor, OpenAIChatPayload) and error boundaries.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-2.4 TypeScript DTO contracts (AIProviderId, OpenAIProviderDescriptor, OpenAIChatPayload) and error boundaries.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2.5: [Ambiguity Reflex] unaddressed_edge_cases: Address gap in 'WF-2: Free & High-Speed LLM Provider API Contracts, Models & Rate-Limit Resilience'
+- **Initiator:** sora_reflex ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:08:46.497Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-2.5 adaptive HTTP 400 parameter retry vs non-retryable HTTP 401/402/403 termination.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-2.5 adaptive HTTP 400 parameter retry vs non-retryable HTTP 401/402/403 termination.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.1: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX'
+- **Initiator:** sora_reflex ➔ **Target:** 🛡️ Security & QA Lead
+- **Resolved At:** 2026-11-24T01:08:48.428Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-3.1 isolated per-provider API key bindings and 300-char sanitized error message extraction.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-3.1 isolated per-provider API key bindings and 300-char sanitized error message extraction.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.3: [Interrogation] Proactive Innovation & Smart Features: WF-3: Unified Multi-Provider Architecture, GitHub
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 💡 Out-of-the-Box Innovator
+- **Resolved At:** 2026-11-24T01:08:49.994Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-3.3 one-click provider and model switching in showSelectModelQuickPick() with immediate Status Bar refresh.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-3.3 one-click provider and model switching in showSelectModelQuickPick() with immediate Status Bar refresh.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.4: [Ambiguity Reflex] vague_security_perimeter: Address gap in 'WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX'
+- **Initiator:** sora_reflex ➔ **Target:** 🛡️ Security & QA Lead
+- **Resolved At:** 2026-11-24T01:08:51.240Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-3.4 GitHub Models silent authentication fallback and RBAC scope guidance.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-3.4 GitHub Models silent authentication fallback and RBAC scope guidance.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.5: [Ambiguity Reflex] unaddressed_edge_cases: Address gap in 'WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX'
+- **Initiator:** sora_reflex ➔ **Target:** ❓ Socratic Inquirer
+- **Resolved At:** 2026-11-24T01:08:52.346Z
+
+#### 1. 🎯 Technical Scope
+Resolved WF-3.5 unified PROVIDER_METADATA DTO mapping across QuickPick, Status Bar, and getActiveModelForProvider.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Resolved WF-3.5 unified PROVIDER_METADATA DTO mapping across QuickPick, Status Bar, and getActiveModelForProvider.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-1: Codebase Reality & AST Extraction for Multi-Provider LLM Pipeline
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 🔎 Smart Codebase & System Files Analyst
+- **Resolved At:** 2026-11-24T01:09:06.915Z
+
+#### 1. 🎯 Technical Scope
+Completed WF-1 AST extraction and blast radius mapping across package.json, src/pipeline/config.ts, src/pipeline/llm-client.ts, and src/extension.ts (263 AST nodes, 320 edges). Established explicit file locks and declarative provider registry boundaries to decouple God Nodes.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Completed WF-1 AST extraction and blast radius mapping across package.json, src/pipeline/config.ts, src/pipeline/llm-client.ts, and src/extension.ts (263 AST nodes, 320 edges). Established explicit file locks and declarative provider registry boundaries to decouple God Nodes.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_1/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-2: Free & High-Speed LLM Provider API Contracts, Models & Rate-Limit Resilience
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 🕵️ Smart AI Researcher
+- **Resolved At:** 2026-11-24T01:09:08.081Z
+
+#### 1. 🎯 Technical Scope
+Completed WF-2 live API contract and free-tier verification for Groq Cloud (api.groq.com/openai/v1), GitHub Models (models.github.ai/inference), Mistral Studio (api.mistral.ai/v1), APInex (api.apinex.bond/v1), and OpenRouter (:free models with openrouter/free auto-router default). Standardized non-retryable HTTP 401/402/403 error boundaries, token redaction, and reasoning model (<think> & temperature/max_completion_tokens) adaptation.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Completed WF-2 live API contract and free-tier verification for Groq Cloud (api.groq.com/openai/v1), GitHub Models (models.github.ai/inference), Mistral Studio (api.mistral.ai/v1), APInex (api.apinex.bond/v1), and OpenRouter (:free models with openrouter/free auto-router default). Standardized non-retryable HTTP 401/402/403 error boundaries, token redaction, and reasoning model (<think> & temperature/max_completion_tokens) adaptation.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_2/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.6: Adversarial Failure-Trap Audit of Multi-Provider Architecture & QuickPick Switching
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 🧐 Strict Critic / Devil's Advocate
+- **Resolved At:** 2026-11-24T01:10:00.738Z
+
+#### 1. 🎯 Technical Scope
+Completed adversarial failure-trap audit of WF-3: verified DTO contracts, non-retryable HTTP 401/402/403 short-circuiting, sequential config updates, and HTTPS/token redaction security controls.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Completed adversarial failure-trap audit of WF-3: verified DTO contracts, non-retryable HTTP 401/402/403 short-circuiting, sequential config updates, and HTTPS/token redaction security controls.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.7: [DBGate] 🧠 Database Impact & ERD Schema Verification for 'WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX'
+- **Initiator:** 🧠 Principal DB Architect ➔ **Target:** 🗄️ Database Specialist
+- **Resolved At:** 2026-11-24T01:10:49.890Z
+
+#### 1. 🎯 Technical Scope
+Verified No ERD Delta for stateless VS Code extension configuration and encrypted SecretStorage persistence.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Verified No ERD Delta for stateless VS Code extension configuration and encrypted SecretStorage persistence.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3.8: [Dual-Stack Alignment] 🤝 Dual-Stack Alignment & Coordination Session (Backend + Web) for 'WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX'
+- **Initiator:** 🏛️ Software Architect ➔ **Target:** All (General)
+- **Resolved At:** 2026-11-24T01:10:51.114Z
+
+#### 1. 🎯 Technical Scope
+Ratified Dual-Stack Shared Contract across PipelineConfig, llm-client.ts, extension.ts, and package.json for all 8 AI providers.
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Ratified Dual-Stack Shared Contract across PipelineConfig, llm-client.ts, extension.ts, and package.json for all 8 AI providers.
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.
+
+
+### ✅ [Accepted Thread] WF-3: Unified Multi-Provider Architecture, GitHub Auth Reuse & Interactive QuickPick UX
+- **Initiator:** 👑 Sora (Team Lead & Director) ➔ **Target:** 🏛️ Software Architect
+- **Resolved At:** 2026-11-24T01:11:02.185Z
+
+#### 1. 🎯 Technical Scope
+Completed WF-3 architectural design, adversarial audit, DBGate verification, and Dual-Stack Shared Contract alignment for the 8-provider LLM pipeline (Gemini, Groq, OpenRouter, GitHub Models, Mistral, APInex, OpenAI, DeepSeek).
+
+#### 2. 🛠️ Adopted Tech Stack & Protocols
+TypeScript, Node.js, SQLite, REST/MCP, Reactive State.
+
+#### 3. 📋 Architecture Decision Records (ADRs)
+- **ADR Decision:** Completed WF-3 architectural design, adversarial audit, DBGate verification, and Dual-Stack Shared Contract alignment for the 8-provider LLM pipeline (Gemini, Groq, OpenRouter, GitHub Models, Mistral, APInex, OpenAI, DeepSeek).
+
+#### 4. 📐 Diagram References
+- [Activity Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/activity-diagram.md)
+- [Sequence Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/sequence-diagram.md)
+- [ERD Diagram](file:///home/aj/projects/AICommit/AJAICommitGenerator/docs/architecture/diagrams/WR-20261124-E49A08/wf_3/erd-diagram.md)
+
+#### 5. ⚙️ Actionable Execution Steps
+1. Review and freeze contract boundaries.
+2. Implement leaf subtasks sequentially.
+
+#### 6. 🧠 DTO & Interface Contracts
+Canonical data contracts and API specifications preserved.

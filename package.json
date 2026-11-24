@@ -91,10 +91,14 @@
           "default": "gemini",
           "enum": [
             "gemini",
-            "openai",
+            "groq",
             "openrouter",
-            "ollama",
-            "deepseek"
+            "github",
+            "mistral",
+            "apinex",
+            "openai",
+            "deepseek",
+            "ollama"
           ],
           "description": "AI provider to use for commit message generation."
         },
@@ -113,6 +117,62 @@
             "custom"
           ],
           "description": "Gemini model to use."
+        },
+        "aiCommitGenerator.groqModel": {
+          "type": "string",
+          "default": "llama-3.3-70b-versatile",
+          "enum": [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "qwen-qwq-32b",
+            "deepseek-r1-distill-llama-70b",
+            "custom"
+          ],
+          "description": "Groq Cloud model to use (Free & ultra-fast LPU inference)."
+        },
+        "aiCommitGenerator.githubModel": {
+          "type": "string",
+          "default": "openai/gpt-4.1-mini",
+          "enum": [
+            "openai/gpt-4.1-mini",
+            "openai/gpt-4o-mini",
+            "openai/gpt-4.1",
+            "deepseek/DeepSeek-V3-0324",
+            "meta/Llama-3.3-70B-Instruct",
+            "mistral-ai/Codestral-2501",
+            "custom"
+          ],
+          "description": "GitHub Models identifier to use (Free with GitHub account/PAT)."
+        },
+        "aiCommitGenerator.mistralModel": {
+          "type": "string",
+          "default": "codestral-latest",
+          "enum": [
+            "codestral-latest",
+            "mistral-small-latest",
+            "mistral-large-latest",
+            "ministral-8b-latest",
+            "custom"
+          ],
+          "description": "Mistral Studio / Codestral model to use."
+        },
+        "aiCommitGenerator.apinexModel": {
+          "type": "string",
+          "default": "free/deepseek-v4.1-flash",
+          "enum": [
+            "free/deepseek-v4.1-flash",
+            "free/glm-5.3-flash",
+            "free/gemini-4-hydrogen",
+            "free/gpt-6-luna",
+            "free/qwen-3.8-max",
+            "free/minimax-m3.1-flash",
+            "free/claude-sonnet-4.6",
+            "claude-sonnet-5.5",
+            "deepseek-v4.1-flash",
+            "custom"
+          ],
+          "description": "APInex (apinex.bond) model to use."
         },
         "aiCommitGenerator.ollamaModel": {
           "type": "string",
@@ -147,8 +207,16 @@
         },
         "aiCommitGenerator.openrouterModel": {
           "type": "string",
-          "default": "qwen/qwen3-coder:free",
+          "default": "openrouter/free",
           "enum": [
+            "openrouter/free",
+            "nvidia/nemotron-3.5-lightning:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "google/gemma-4-31b-it:free",
+            "google/gemma-4-26b-a4b-it:free",
+            "inclusionai/ling-3.2-flash:free",
+            "baidu/ernie-5.5-flash-preview:free",
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             "qwen/qwen3-coder:free",
             "openai/gpt-oss-20b:free",
             "nvidia/nemotron-nano-9b-v2:free",
@@ -158,7 +226,7 @@
             "openai/gpt-oss-120b:free",
             "custom"
           ],
-          "description": "OpenRouter model to use."
+          "description": "OpenRouter model to use ('openrouter/free' auto-routes across active zero-cost models)."
         },
         "aiCommitGenerator.customModel": {
           "type": "string",
@@ -211,9 +279,66 @@
           "default": [],
           "description": "Custom OpenRouter models list."
         },
+        "aiCommitGenerator.customGroqModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom Groq Cloud models list."
+        },
+        "aiCommitGenerator.customGithubModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom GitHub Models list."
+        },
+        "aiCommitGenerator.customMistralModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom Mistral Studio / Codestral models list."
+        },
+        "aiCommitGenerator.customApinexModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Custom APInex (apinex.bond) models list."
+        },
         "aiCommitGenerator.apiKey": {
           "type": "string",
-          "description": "API key for the selected AI provider (Gemini, OpenAI, or OpenRouter). ⚠️ Do not share or commit this key!"
+          "description": "Default API key for the selected AI provider (or fallback when provider-specific key is empty). ⚠️ Do not share or commit this key!"
+        },
+        "aiCommitGenerator.groqApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated Groq Cloud API key (gsk_...). Falls back to aiCommitGenerator.apiKey if empty."
+        },
+        "aiCommitGenerator.githubModelsApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated GitHub Models PAT (with models:read permission). Automatically falls back to your signed-in GitHub account or gitToken if empty."
+        },
+        "aiCommitGenerator.mistralApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated Mistral Studio / Codestral API key. Falls back to aiCommitGenerator.apiKey if empty."
+        },
+        "aiCommitGenerator.apinexApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated APInex (apinex.bond) API key (sk-apx...). Falls back to aiCommitGenerator.apiKey if empty."
+        },
+        "aiCommitGenerator.openrouterApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Dedicated OpenRouter API key (sk-or-...). Falls back to aiCommitGenerator.apiKey if empty."
         },
         "aiCommitGenerator.issueTracker": {
           "type": "string",

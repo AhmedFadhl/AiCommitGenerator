@@ -251,31 +251,6 @@
       "is_god_node": false
     },
     {
-      "id": "package.json",
-      "name": "package.json",
-      "label": "package.json",
-      "type": "module",
-      "kind": "codebase",
-      "file": "package.json",
-      "source_file": "package.json",
-      "containerId": "root",
-      "containerDepth": 0,
-      "language": "unknown",
-      "totalLines": 390,
-      "structuralFingerprint": "390L",
-      "complexity": "medium",
-      "confidence": "high",
-      "searchKeywords": [
-        "package",
-        "json",
-        "module"
-      ],
-      "aiSummary": "📁 [FILE ARCHITECTURAL SPECIFICATION]\n• Module/File: package.json\n• Architectural Layer: Core Infrastructure / Utilities\n• Inbound Usage (0 consumers): none\n• Outbound Imports (3 modules): changes, google, ai\n• Blast Radius: Leaf or root entry point.",
-      "in_degree": 0,
-      "out_degree": 3,
-      "is_god_node": false
-    },
-    {
       "id": "table:staged",
       "name": "staged",
       "label": "Table: staged",
@@ -3412,87 +3387,6 @@
       "complexity": "low"
     },
     {
-      "id": "src/pipeline/config.ts",
-      "name": "config.ts",
-      "label": "config.ts",
-      "type": "module",
-      "kind": "codebase",
-      "file": "src/pipeline/config.ts",
-      "source_file": "src/pipeline/config.ts",
-      "containerId": "src/pipeline",
-      "containerDepth": 2,
-      "language": "typescript",
-      "totalLines": 59,
-      "structuralFingerprint": "1F 1I 2E",
-      "complexity": "low",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "pipeline",
-        "config",
-        "module",
-        "get"
-      ],
-      "aiSummary": "📁 [FILE ARCHITECTURAL SPECIFICATION]\n• Module/File: config.ts\n• Architectural Layer: Core Infrastructure / Utilities\n• Inbound Usage (0 consumers): none\n• Outbound Imports (4 modules): getPipelineConfig, PipelineConfig, PipelineConfig, getPipelineConfig\n• Blast Radius: Leaf or root entry point.",
-      "in_degree": 0,
-      "out_degree": 4,
-      "is_god_node": false
-    },
-    {
-      "id": "src/pipeline/config.ts:getPipelineConfig",
-      "name": "getPipelineConfig",
-      "label": "getPipelineConfig",
-      "type": "function",
-      "kind": "codebase",
-      "file": "src/pipeline/config.ts",
-      "source_file": "src/pipeline/config.ts",
-      "containerId": "src/pipeline",
-      "containerDepth": 2,
-      "language": "typescript",
-      "params": [
-        "resourceUri?: vscode.Uri"
-      ],
-      "returnType": "PipelineConfig",
-      "isAsync": false,
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "pipeline",
-        "config",
-        "get",
-        "function"
-      ],
-      "aiSummary": "[typescript] Function 'getPipelineConfig'.",
-      "in_degree": 4,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
-      "id": "src/pipeline/config.ts:PipelineConfig",
-      "name": "PipelineConfig",
-      "label": "PipelineConfig",
-      "type": "interface",
-      "kind": "codebase",
-      "file": "src/pipeline/config.ts",
-      "source_file": "src/pipeline/config.ts",
-      "containerId": "src/pipeline",
-      "containerDepth": 2,
-      "language": "typescript",
-      "confidence": "high",
-      "searchKeywords": [
-        "src",
-        "pipeline",
-        "config",
-        "interface"
-      ],
-      "aiSummary": "[typescript] interface 'PipelineConfig'.",
-      "in_degree": 2,
-      "out_degree": 0,
-      "is_god_node": false,
-      "complexity": "low"
-    },
-    {
       "id": "docs/architecture/diagrams/WR-20261018-5D0C33/wf_1/activity-diagram.md",
       "name": "activity-diagram.md",
       "label": "activity-diagram.md (docs)",
@@ -4471,7 +4365,7 @@
         "domainName": "remote",
         "description": "Database entity table: remote"
       },
-      "in_degree": 1,
+      "in_degree": 2,
       "out_degree": 0,
       "is_god_node": false,
       "complexity": "low"
@@ -5661,7 +5555,7 @@
       ],
       "aiSummary": "🚨 [GOD NODE ARCHITECTURAL AUDIT]\n• Component: llm-client.ts (src/pipeline/llm-client.ts)\n• Degree Centrality: 0 incoming (fan-in), 10 outgoing (fan-out) [Total: 10 connections]\n• Blast Radius Risk: CRITICAL. Any change here propagates to 0 consumers including: none.\n• Downstream Dependencies: Directly coupled with 10 services: isReasoningModel, shouldUseMaxCompletionTokens, getActiveModelForProvider, getActiveModelForProvider, getPipelineConfig.\n• Architectural Recommendation: High coupling detected. Decouple by extracting interface contracts (Facade / Mediator pattern) and applying Event-Driven or Port-and-Adapters isolation.",
       "in_degree": 0,
-      "out_degree": 10,
+      "out_degree": 9,
       "is_god_node": true
     },
     {
@@ -5825,7 +5719,7 @@
       ],
       "aiSummary": "🚨 [GOD NODE ARCHITECTURAL AUDIT]\n• Component: CommitPipeline (src/pipeline/orchestrator.ts)\n• Degree Centrality: 3 incoming (fan-in), 12 outgoing (fan-out) [Total: 15 connections]\n• Blast Radius Risk: CRITICAL. Any change here propagates to 3 consumers including: orchestrator.ts, orchestrator.ts, CommitPipeline, CommitPipeline.\n• Downstream Dependencies: Directly coupled with 12 services: CommitPipeline, CommitPipeline, getPipelineConfig, src/pipeline/prompts.ts:singlePassCommitPrompt, src/pipeline/json-parser.ts:extractJson.\n• Architectural Recommendation: High coupling detected. Decouple by extracting interface contracts (Facade / Mediator pattern) and applying Event-Driven or Port-and-Adapters isolation.",
       "in_degree": 3,
-      "out_degree": 12,
+      "out_degree": 11,
       "is_god_node": true,
       "complexity": "critical"
     },
@@ -6647,33 +6541,115 @@
       "out_degree": 0,
       "is_god_node": false,
       "complexity": "low"
+    },
+    {
+      "id": "package.json",
+      "name": "package.json",
+      "label": "package.json",
+      "type": "module",
+      "kind": "codebase",
+      "file": "package.json",
+      "source_file": "package.json",
+      "containerId": "root",
+      "containerDepth": 0,
+      "language": "unknown",
+      "totalLines": 547,
+      "structuralFingerprint": "547L",
+      "complexity": "high",
+      "confidence": "high",
+      "searchKeywords": [
+        "package",
+        "json",
+        "module"
+      ],
+      "aiSummary": "[unknown] module 'package.json' (547 lines) [547L].",
+      "in_degree": 0,
+      "out_degree": 4,
+      "is_god_node": false
+    },
+    {
+      "id": "src/pipeline/config.ts",
+      "name": "config.ts",
+      "label": "config.ts",
+      "type": "module",
+      "kind": "codebase",
+      "file": "src/pipeline/config.ts",
+      "source_file": "src/pipeline/config.ts",
+      "containerId": "src/pipeline",
+      "containerDepth": 2,
+      "language": "typescript",
+      "totalLines": 108,
+      "structuralFingerprint": "1F 1I 2E",
+      "complexity": "low",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "pipeline",
+        "config",
+        "module",
+        "get"
+      ],
+      "aiSummary": "[typescript] module 'config.ts' (108 lines) [1F 1I 2E].",
+      "in_degree": 0,
+      "out_degree": 4,
+      "is_god_node": false
+    },
+    {
+      "id": "src/pipeline/config.ts:getPipelineConfig",
+      "name": "getPipelineConfig",
+      "label": "getPipelineConfig",
+      "type": "function",
+      "kind": "codebase",
+      "file": "src/pipeline/config.ts",
+      "source_file": "src/pipeline/config.ts",
+      "containerId": "src/pipeline",
+      "containerDepth": 2,
+      "language": "typescript",
+      "params": [
+        "resourceUri?: vscode.Uri"
+      ],
+      "returnType": "PipelineConfig",
+      "isAsync": false,
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "pipeline",
+        "config",
+        "get",
+        "function"
+      ],
+      "aiSummary": "[typescript] Function 'getPipelineConfig'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
+    },
+    {
+      "id": "src/pipeline/config.ts:PipelineConfig",
+      "name": "PipelineConfig",
+      "label": "PipelineConfig",
+      "type": "interface",
+      "kind": "codebase",
+      "file": "src/pipeline/config.ts",
+      "source_file": "src/pipeline/config.ts",
+      "containerId": "src/pipeline",
+      "containerDepth": 2,
+      "language": "typescript",
+      "confidence": "high",
+      "searchKeywords": [
+        "src",
+        "pipeline",
+        "config",
+        "interface"
+      ],
+      "aiSummary": "[typescript] interface 'PipelineConfig'.",
+      "in_degree": 2,
+      "out_degree": 0,
+      "is_god_node": false,
+      "complexity": "low"
     }
   ],
   "edges": [
-    {
-      "source": "package.json",
-      "target": "table:changes",
-      "relation": "reads_from",
-      "kind": "codebase",
-      "type": "dataflow",
-      "confidence": "high"
-    },
-    {
-      "source": "package.json",
-      "target": "table:google",
-      "relation": "reads_from",
-      "kind": "codebase",
-      "type": "dataflow",
-      "confidence": "high"
-    },
-    {
-      "source": "package.json",
-      "target": "table:ai",
-      "relation": "reads_from",
-      "kind": "codebase",
-      "type": "dataflow",
-      "confidence": "high"
-    },
     {
       "source": "dist/extension.js",
       "target": "dist/extension.js:__export",
@@ -7898,34 +7874,6 @@
       "confidence": "high"
     },
     {
-      "source": "src/pipeline/config.ts",
-      "target": "src/pipeline/config.ts:getPipelineConfig",
-      "relation": "contains",
-      "kind": "codebase",
-      "type": "structural"
-    },
-    {
-      "source": "src/pipeline/config.ts",
-      "target": "src/pipeline/config.ts:PipelineConfig",
-      "relation": "contains",
-      "kind": "codebase",
-      "type": "structural"
-    },
-    {
-      "source": "src/pipeline/config.ts",
-      "target": "src/pipeline/config.ts:PipelineConfig",
-      "relation": "exports",
-      "kind": "codebase",
-      "type": "export"
-    },
-    {
-      "source": "src/pipeline/config.ts",
-      "target": "src/pipeline/config.ts:getPipelineConfig",
-      "relation": "exports",
-      "kind": "codebase",
-      "type": "export"
-    },
-    {
       "source": "src/autoDeploy.ts",
       "target": "src/autoDeploy.ts:validatePreFlightGitState",
       "relation": "contains",
@@ -8647,14 +8595,6 @@
     },
     {
       "source": "src/pipeline/llm-client.ts",
-      "target": "src/pipeline/config.ts:getPipelineConfig",
-      "relation": "calls",
-      "kind": "codebase",
-      "type": "behavioral",
-      "confidence": "high"
-    },
-    {
-      "source": "src/pipeline/llm-client.ts",
       "target": "src/pipeline/llm-client.ts:getActiveModelForProvider",
       "relation": "calls",
       "kind": "codebase",
@@ -8710,14 +8650,6 @@
     {
       "source": "src/pipeline/orchestrator.ts:CommitPipeline",
       "target": "src/pipeline/orchestrator.ts:CommitPipeline",
-      "relation": "calls",
-      "kind": "codebase",
-      "type": "behavioral",
-      "confidence": "high"
-    },
-    {
-      "source": "src/pipeline/orchestrator.ts:CommitPipeline",
-      "target": "src/pipeline/config.ts:getPipelineConfig",
       "relation": "calls",
       "kind": "codebase",
       "type": "behavioral",
@@ -9053,6 +8985,66 @@
       "kind": "codebase",
       "type": "dataflow",
       "confidence": "high"
+    },
+    {
+      "source": "package.json",
+      "target": "table:changes",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "package.json",
+      "target": "table:google",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "package.json",
+      "target": "table:ai",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "package.json",
+      "target": "table:remote",
+      "relation": "reads_from",
+      "kind": "codebase",
+      "type": "dataflow",
+      "confidence": "high"
+    },
+    {
+      "source": "src/pipeline/config.ts",
+      "target": "src/pipeline/config.ts:getPipelineConfig",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/pipeline/config.ts",
+      "target": "src/pipeline/config.ts:PipelineConfig",
+      "relation": "contains",
+      "kind": "codebase",
+      "type": "structural"
+    },
+    {
+      "source": "src/pipeline/config.ts",
+      "target": "src/pipeline/config.ts:PipelineConfig",
+      "relation": "exports",
+      "kind": "codebase",
+      "type": "export"
+    },
+    {
+      "source": "src/pipeline/config.ts",
+      "target": "src/pipeline/config.ts:getPipelineConfig",
+      "relation": "exports",
+      "kind": "codebase",
+      "type": "export"
     }
   ],
   "godNodes": [
@@ -9218,13 +9210,13 @@
   },
   "stats": {
     "totalNodes": 263,
-    "totalEdges": 320,
+    "totalEdges": 319,
     "godNodesCount": 10,
     "communitiesCount": 9,
     "byKind": {
       "codebase": {
         "nodes": 168,
-        "edges": 320
+        "edges": 319
       },
       "domain": {
         "nodes": 16,
