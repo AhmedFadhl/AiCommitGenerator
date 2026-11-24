@@ -1,8 +1,8 @@
 {
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
-  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, OpenAI, or OpenRouter)",
-  "version": "1.0.7",
+  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, Groq, OpenRouter, GitHub Models, Mistral, APInex, OpenAI, or DeepSeek)",
+  "version": "1.0.8",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
   "license": "MIT",
