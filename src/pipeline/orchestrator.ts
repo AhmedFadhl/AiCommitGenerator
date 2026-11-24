@@ -250,7 +250,7 @@ export class CommitPipeline {
     }
 
     let cleaned = raw
-      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '')
       .replace(/^```[a-zA-Z]*\n?/, '')
       .replace(/\n?```$/, '')
       .trim();

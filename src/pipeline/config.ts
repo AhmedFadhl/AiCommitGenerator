@@ -76,7 +76,7 @@ export function getPipelineConfig(resourceUri?: vscode.Uri): PipelineConfig {
   const apinexApiKey = (config.get<string>('apinexApiKey', '') || '').trim();
   const openrouterApiKey = (config.get<string>('openrouterApiKey', '') || '').trim();
 
-  const groqModel = (config.get<string>('groqModel', 'llama-3.3-70b-versatile') || 'llama-3.3-70b-versatile').trim();
+  const groqModel = (config.get<string>('groqModel', 'openai/gpt-oss-120b') || 'openai/gpt-oss-120b').trim();
   const githubModel = (config.get<string>('githubModel', 'openai/gpt-4.1-mini') || 'openai/gpt-4.1-mini').trim();
   const mistralModel = (config.get<string>('mistralModel', 'codestral-latest') || 'codestral-latest').trim();
   const apinexModel = (config.get<string>('apinexModel', 'free/deepseek-v4.1-flash') || 'free/deepseek-v4.1-flash').trim();

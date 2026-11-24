@@ -1,7 +1,7 @@
 {
   "name": "aj-ai-commit-generator",
   "displayName": "(AJ) AI Commit Generator Pro",
-  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, Groq, OpenRouter, GitHub Models, Mistral, APInex, OpenAI, or DeepSeek)",
+  "description": "Generate semantic Git commit messages with issue tracking using AI (Gemini, Groq, OpenRouter, Mistral, APInex, OpenAI, or DeepSeek)",
   "version": "1.0.8",
   "publisher": "AhmedAJ",
   "icon": "resources/aj-logo.png",
@@ -120,16 +120,15 @@
         },
         "aiCommitGenerator.groqModel": {
           "type": "string",
-          "default": "llama-3.3-70b-versatile",
+          "default": "openai/gpt-oss-120b",
           "enum": [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-            "qwen-qwq-32b",
-            "deepseek-r1-distill-llama-70b",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b",
+            "allam-2-7b",
             "custom"
           ],
-          "description": "Groq Cloud model to use (Free & ultra-fast LPU inference)."
+          "description": "Groq Cloud model to use (Free & ultra-fast LPU inference: 450–1000 tokens/sec)."
         },
         "aiCommitGenerator.githubModel": {
           "type": "string",

@@ -266,11 +266,19 @@ async function getRepoDiff(repoRoot: string): Promise<string> {
 
 function cleanCommitMessage(msg: string): string {
   return msg
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '')
     .replace(/^```[a-zA-Z]*\n?/, '')
     .replace(/\n?```$/, '')
     .trim();
 }
+
+const DEPRECATED_GROQ_MODELS_UI: ReadonlySet<string> = new Set([
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'qwen-qwq-32b',
+  'deepseek-r1-distill-llama-70b'
+]);
 
 function getActiveModel(provider: string, config?: vscode.WorkspaceConfiguration): string {
   const cfg = config || vscode.workspace.getConfiguration('aiCommitGenerator');
@@ -279,42 +287,74 @@ function getActiveModel(provider: string, config?: vscode.WorkspaceConfiguration
 
   if (configuredModel === 'custom') {
     if (customModel.length > 0) {
+      if (provider === 'groq' && DEPRECATED_GROQ_MODELS_UI.has(customModel)) {
+        return 'openai/gpt-oss-120b';
+      }
       return customModel;
     }
     vscode.window.showWarningMessage(
       `AI Commit Generator: 'custom' selected for ${provider}, but 'customModel' is empty. Falling back to default.`
     );
   } else if (configuredModel) {
+    if (provider === 'groq' && DEPRECATED_GROQ_MODELS_UI.has(configuredModel)) {
+      return 'openai/gpt-oss-120b';
+    }
     return configuredModel;
   }
 
   switch (provider) {
     case 'gemini': return 'gemini-3.1-flash-lite-preview';
+    case 'groq': return 'openai/gpt-oss-120b';
+    case 'openrouter': return 'openrouter/free';
+    case 'github': return 'openai/gpt-4.1-mini';
+    case 'mistral': return 'codestral-latest';
+    case 'apinex': return 'free/deepseek-v4.1-flash';
     case 'openai': return 'gpt-4o-mini';
     case 'ollama': return cfg.get<string>('ollamaModel') || 'gemma2:9b';
     case 'deepseek': return 'deepseek-chat';
-    case 'openrouter': return 'qwen/qwen3-coder:free';
     default: return 'gemini-3.1-flash-lite-preview';
   }
 }
 
 interface ModelQuickPickItem extends vscode.QuickPickItem {
-  action?: 'add' | 'remove' | 'select';
+  action?: 'add' | 'remove' | 'select' | 'switch-provider' | 'set-api-key' | 'fetch-live-models';
   modelName?: string;
   isCustom?: boolean;
 }
+
+const PROVIDER_DISPLAY_META: Readonly<Record<string, { title: string; badge: string; apiKeySetting: string; defaultModel: string; modelsUrl?: string }>> = {
+  groq: { title: 'Groq Cloud', badge: '⚡ Free & Ultra-Fast LPU (500–1000 tok/s)', apiKeySetting: 'groqApiKey', defaultModel: 'openai/gpt-oss-120b', modelsUrl: 'https://api.groq.com/openai/v1/models' },
+  openrouter: { title: 'OpenRouter', badge: '🔄 Free Models & Zero-Cost Auto-Router', apiKeySetting: 'openrouterApiKey', defaultModel: 'openrouter/free', modelsUrl: 'https://openrouter.ai/api/v1/models' },
+  mistral: { title: 'Mistral Studio', badge: '🧠 Free Codestral Experimentation Tier', apiKeySetting: 'mistralApiKey', defaultModel: 'codestral-latest', modelsUrl: 'https://api.mistral.ai/v1/models' },
+  gemini: { title: 'Google Gemini', badge: '✨ AI Studio OAuth / API Key', apiKeySetting: 'apiKey', defaultModel: 'gemini-3.1-flash-lite-preview' },
+  apinex: { title: 'APInex', badge: '🌐 Multi-Model Gateway (apinex.bond)', apiKeySetting: 'apinexApiKey', defaultModel: 'free/deepseek-v4.1-flash', modelsUrl: 'https://api.apinex.bond/v1/models' },
+  openai: { title: 'OpenAI', badge: '🤖 GPT-4o & Reasoning Models', apiKeySetting: 'apiKey', defaultModel: 'gpt-4o-mini', modelsUrl: 'https://api.openai.com/v1/models' },
+  deepseek: { title: 'DeepSeek', badge: '🐋 DeepSeek Chat & Coder', apiKeySetting: 'apiKey', defaultModel: 'deepseek-chat', modelsUrl: 'https://api.deepseek.com/models' },
+  ollama: { title: 'Ollama', badge: '💻 Local Offline LLM', apiKeySetting: '', defaultModel: 'gemma2:9b' }
+};
 
 async function showSelectModelQuickPick(): Promise<void> {
   const config = vscode.workspace.getConfiguration('aiCommitGenerator');
   const provider = config.get<string>('provider') || 'gemini';
   const activeModel = getActiveModel(provider, config);
 
-  const providerTitle = provider.charAt(0).toUpperCase() + provider.slice(1);
+  const meta = PROVIDER_DISPLAY_META[provider] || {
+    title: provider.charAt(0).toUpperCase() + provider.slice(1),
+    badge: '',
+    apiKeySetting: 'apiKey',
+    defaultModel: 'gemini-3.1-flash-lite-preview'
+  };
+  const providerTitle = meta.title;
+
   const customModelsKeyMap: Record<string, string> = {
     gemini: 'customGeminiModels',
+    groq: 'customGroqModels',
+    openrouter: 'customOpenrouterModels',
+    github: 'customGithubModels',
+    mistral: 'customMistralModels',
+    apinex: 'customApinexModels',
     openai: 'customOpenaiModels',
-    deepseek: 'customDeepseekModels',
-    openrouter: 'customOpenrouterModels'
+    deepseek: 'customDeepseekModels'
   };
   const customModelsKey = customModelsKeyMap[provider] || 'customGeminiModels';
   const customModels = (config.get<string[]>(customModelsKey) || [])
@@ -323,18 +363,30 @@ async function showSelectModelQuickPick(): Promise<void> {
 
   const builtInMap: Record<string, string[]> = {
     gemini: [
-      'gemini-2.0-flash',
+      'gemini-3.1-flash-lite-preview',
       'gemini-2.5-flash',
       'gemini-2.5-flash-lite',
       'gemini-2.5-pro',
       'gemini-3-flash-preview',
+      'gemini-2.0-flash',
       'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-3.1-flash-lite-preview'
+      'gemini-1.5-pro'
     ],
-    openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
-    deepseek: ['deepseek-chat', 'deepseek-coder'],
+    groq: [
+      'openai/gpt-oss-120b',
+      'openai/gpt-oss-20b',
+      'qwen/qwen3.8-27b',
+      'allam-2-7b'
+    ],
     openrouter: [
+      'openrouter/free',
+      'nvidia/nemotron-3.5-lightning:free',
+      'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'inclusionai/ling-3.2-flash:free',
+      'baidu/ernie-5.5-flash-preview:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
       'qwen/qwen3-coder:free',
       'openai/gpt-oss-20b:free',
       'nvidia/nemotron-nano-9b-v2:free',
@@ -343,6 +395,33 @@ async function showSelectModelQuickPick(): Promise<void> {
       'mistralai/devstral-2512:free',
       'openai/gpt-oss-120b:free'
     ],
+    github: [
+      'openai/gpt-4.1-mini',
+      'openai/gpt-4o-mini',
+      'openai/gpt-4.1',
+      'deepseek/DeepSeek-V3-0324',
+      'meta/Llama-3.3-70B-Instruct',
+      'mistral-ai/Codestral-2501'
+    ],
+    mistral: [
+      'codestral-latest',
+      'mistral-small-latest',
+      'mistral-large-latest',
+      'ministral-8b-latest'
+    ],
+    apinex: [
+      'free/deepseek-v4.1-flash',
+      'free/glm-5.3-flash',
+      'free/gemini-4-hydrogen',
+      'free/gpt-6-luna',
+      'free/qwen-3.8-max',
+      'free/minimax-m3.1-flash',
+      'free/claude-sonnet-4.6',
+      'claude-sonnet-5.5',
+      'deepseek-v4.1-flash'
+    ],
+    openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+    deepseek: ['deepseek-chat', 'deepseek-coder'],
     ollama: ['gemma2:9b', 'llama3', 'mistral']
   };
 
@@ -350,10 +429,37 @@ async function showSelectModelQuickPick(): Promise<void> {
   const items: ModelQuickPickItem[] = [];
 
   items.push({
+    label: `$(arrow-swap) Switch AI Provider...`,
+    description: `Current: ${providerTitle} (${meta.badge})`,
+    action: 'switch-provider'
+  });
+
+  if (meta.apiKeySetting) {
+    const hasDedicatedKey = !!(config.get<string>(meta.apiKeySetting) || '').trim();
+    const hasSharedKey = !!(config.get<string>('apiKey') || '').trim();
+    const keyStatus = provider === 'github'
+      ? (hasDedicatedKey ? 'Configured (Dedicated PAT)' : 'Auto (Using GitHub Account / gitToken)')
+      : (hasDedicatedKey || hasSharedKey ? 'Configured ✔' : 'Not Configured ⚠️');
+    items.push({
+      label: `$(key) Set / Update ${providerTitle} API Key...`,
+      description: keyStatus,
+      action: 'set-api-key'
+    });
+  }
+
+  items.push({
     label: `$(plus) Add New Custom Model...`,
     description: `Add a new model identifier to ${providerTitle} list`,
     action: 'add'
   });
+
+  if (meta.modelsUrl) {
+    items.push({
+      label: `$(sync) Fetch Live Models from ${providerTitle} API...`,
+      description: `Query ${meta.modelsUrl} for all active chat models on your account`,
+      action: 'fetch-live-models'
+    });
+  }
 
   if (customModels.length > 0) {
     items.push({
@@ -375,7 +481,7 @@ async function showSelectModelQuickPick(): Promise<void> {
 
   if (presets.length > 0) {
     items.push({
-      label: 'Standard Presets',
+      label: `${providerTitle} Presets`,
       kind: vscode.QuickPickItemKind.Separator
     });
 
@@ -404,16 +510,117 @@ async function showSelectModelQuickPick(): Promise<void> {
   }
 
   const selected = await vscode.window.showQuickPick(items, {
-    placeHolder: `Select AI model for ${providerTitle} (Current: ${activeModel})`,
+    placeHolder: `Select AI model or switch provider (Current: ${providerTitle} • ${activeModel})`,
     title: `AI Commit Generator: ${providerTitle} Models`
   });
 
   if (!selected) return;
 
+  if (selected.action === 'switch-provider') {
+    const providerChoices = Object.entries(PROVIDER_DISPLAY_META).map(([id, info]) => ({
+      label: id === provider ? `$(check) ${info.title}` : `$(hubot) ${info.title}`,
+      description: info.badge,
+      detail: `Default model: ${getActiveModel(id, config)}`,
+      providerId: id
+    }));
+
+    const pickedProvider = await vscode.window.showQuickPick(providerChoices, {
+      placeHolder: 'Choose AI Provider (Groq, OpenRouter, GitHub Models, Mistral, APInex, Gemini, OpenAI, DeepSeek, Ollama)',
+      title: 'AI Commit Generator: Switch AI Provider'
+    });
+
+    if (!pickedProvider) return;
+    await config.update('provider', pickedProvider.providerId, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(
+      `AI Commit Generator: Switched provider to ${PROVIDER_DISPLAY_META[pickedProvider.providerId]?.title || pickedProvider.providerId}.`
+    );
+    await showSelectModelQuickPick();
+    return;
+  }
+
+  if (selected.action === 'set-api-key' && meta.apiKeySetting) {
+    const keyInput = await vscode.window.showInputBox({
+      title: `Configure ${providerTitle} API Key`,
+      prompt: `Enter your ${providerTitle} API Key (saved to aiCommitGenerator.${meta.apiKeySetting})`,
+      password: true,
+      placeHolder: provider === 'groq' ? 'gsk_...' : provider === 'apinex' ? 'sk-apx...' : provider === 'openrouter' ? 'sk-or-...' : 'API Key / PAT',
+      ignoreFocusOut: true
+    });
+
+    if (keyInput !== undefined) {
+      const trimmedKey = keyInput.trim();
+      await config.update(meta.apiKeySetting, trimmedKey, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(
+        trimmedKey
+          ? `AI Commit Generator: ${providerTitle} API key saved!`
+          : `AI Commit Generator: Cleared dedicated ${providerTitle} API key.`
+      );
+    }
+    return;
+  }
+
+  if (selected.action === 'fetch-live-models' && meta.modelsUrl) {
+    const apiKey = (config.get<string>(meta.apiKeySetting) || config.get<string>('apiKey') || '').trim();
+    if (!apiKey && provider !== 'openrouter') {
+      vscode.window.showWarningMessage(`Please set your ${providerTitle} API key first to fetch live models.`);
+      return;
+    }
+    try {
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+      const res = await fetch(meta.modelsUrl, { headers });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      }
+      const payload: any = await res.json();
+      const rawModels: string[] = Array.isArray(payload?.data)
+        ? payload.data.map((m: any) => String(m?.id || '')).filter(Boolean)
+        : [];
+      const chatModels = rawModels
+        .filter(id => !/(whisper|orpheus|tts|embed|guard|safeguard|moderation|audio)/i.test(id))
+        .sort();
+
+      if (chatModels.length === 0) {
+        vscode.window.showWarningMessage(`No chat models returned from ${providerTitle}.`);
+        return;
+      }
+
+      const livePicked = await vscode.window.showQuickPick(
+        chatModels.map(id => ({
+          label: id.toLowerCase() === activeModel.toLowerCase() ? `$(check) ${id}` : `$(cloud) ${id}`,
+          description: id.toLowerCase() === activeModel.toLowerCase() ? '(Active)' : `Live on ${providerTitle}`,
+          modelId: id
+        })),
+        {
+          placeHolder: `Select a live model from ${providerTitle} (${chatModels.length} available)`,
+          title: `Live ${providerTitle} Models`
+        }
+      );
+
+      if (!livePicked) return;
+      const chosen = livePicked.modelId;
+      if (presets.includes(chosen)) {
+        await config.update(`${provider}Model`, chosen, vscode.ConfigurationTarget.Global);
+      } else {
+        if (!customModels.some(m => m.toLowerCase() === chosen.toLowerCase())) {
+          await config.update(customModelsKey, [...customModels, chosen], vscode.ConfigurationTarget.Global);
+        }
+        await config.update('customModel', chosen, vscode.ConfigurationTarget.Global);
+        await config.update(`${provider}Model`, 'custom', vscode.ConfigurationTarget.Global);
+      }
+      vscode.window.showInformationMessage(`AI Commit Generator: Activated live ${providerTitle} model '${chosen}'.`);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Failed to fetch live models from ${providerTitle}: ${err.message || String(err)}`);
+    }
+    return;
+  }
+
   if (selected.action === 'add') {
     const input = await vscode.window.showInputBox({
       title: `Add Custom ${providerTitle} Model`,
-      prompt: `Enter the model identifier (e.g. gemini-3.5-pro, gpt-4.5-preview)`,
+      prompt: `Enter the model identifier (e.g. llama-3.3-70b-versatile, openrouter/free, codestral-latest)`,
       placeHolder: 'model-identifier',
       validateInput: (val) => {
         const trimmed = (val || '').trim();
@@ -454,7 +661,7 @@ async function showSelectModelQuickPick(): Promise<void> {
     const currentCustom = (config.get<string>('customModel') || '').trim();
     if (currentCustom.toLowerCase() === toRemove.toLowerCase()) {
       await config.update('customModel', '', vscode.ConfigurationTarget.Global);
-      const defaultPreset = presets[0] || '';
+      const defaultPreset = presets[0] || meta.defaultModel;
       if (defaultPreset) {
         await config.update(`${provider}Model`, defaultPreset, vscode.ConfigurationTarget.Global);
       }
@@ -561,7 +768,7 @@ export function activate(context: vscode.ExtensionContext) {
     const p = cfg.get<string>('provider') || 'gemini';
     const m = getActiveModel(p, cfg);
     const rawAuthMode = cfg.get<string>('googleAuthMode', 'ApiKey');
-    const isGoogleAccountAuth = rawAuthMode === 'Account';
+    const isGoogleAccountAuth = p === 'gemini' && rawAuthMode === 'Account';
 
     if (isGoogleAccountAuth) {
       const email = await GoogleAuthService.getInstance().getStoredEmail();

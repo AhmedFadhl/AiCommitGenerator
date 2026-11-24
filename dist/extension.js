@@ -517,6 +517,17 @@ var DiffFilter = class _DiffFilter {
 
 // src/pipeline/config.ts
 var vscode2 = __toESM(require("vscode"));
+var VALID_PROVIDERS = /* @__PURE__ */ new Set([
+  "gemini",
+  "groq",
+  "openrouter",
+  "github",
+  "mistral",
+  "apinex",
+  "openai",
+  "deepseek",
+  "ollama"
+]);
 function getPipelineConfig(resourceUri) {
   const config = vscode2.workspace.getConfiguration("aiCommitGenerator", resourceUri);
   const rawAuthMode = config.get("googleAuthMode", "ApiKey");
@@ -527,11 +538,23 @@ function getPipelineConfig(resourceUri) {
   const rawLang = config.get("commitLanguage", "en");
   const commitLanguage = rawLang === "ar" ? "ar" : rawLang === "bilingual" ? "bilingual" : "en";
   const commitFormat = config.get("commitFormat", "conventional") || "conventional";
-  const provider = config.get("provider", "gemini") || "gemini";
+  const rawProvider = (config.get("provider", "gemini") || "gemini").trim().toLowerCase();
+  const provider = VALID_PROVIDERS.has(rawProvider) ? rawProvider : "gemini";
   const rawMaxTokens = config.get("maxTokens", 2e3);
   const maxTokens = Math.max(100, Math.min(16e3, typeof rawMaxTokens === "number" && !isNaN(rawMaxTokens) ? rawMaxTokens : 2e3));
   const rawMaxRetries = config.get("maxRetries", 3);
   const maxRetries = Math.max(1, Math.min(10, typeof rawMaxRetries === "number" && !isNaN(rawMaxRetries) ? rawMaxRetries : 3));
+  const apiKey = (config.get("apiKey", "") || "").trim();
+  const groqApiKey = (config.get("groqApiKey", "") || "").trim();
+  const githubModelsApiKey = (config.get("githubModelsApiKey", "") || "").trim();
+  const mistralApiKey = (config.get("mistralApiKey", "") || "").trim();
+  const apinexApiKey = (config.get("apinexApiKey", "") || "").trim();
+  const openrouterApiKey = (config.get("openrouterApiKey", "") || "").trim();
+  const groqModel = (config.get("groqModel", "openai/gpt-oss-120b") || "openai/gpt-oss-120b").trim();
+  const githubModel = (config.get("githubModel", "openai/gpt-4.1-mini") || "openai/gpt-4.1-mini").trim();
+  const mistralModel = (config.get("mistralModel", "codestral-latest") || "codestral-latest").trim();
+  const apinexModel = (config.get("apinexModel", "free/deepseek-v4.1-flash") || "free/deepseek-v4.1-flash").trim();
+  const openrouterModel = (config.get("openrouterModel", "openrouter/free") || "openrouter/free").trim();
   return Object.freeze({
     googleAuthMode,
     enableMultiStyle,
@@ -541,7 +564,18 @@ function getPipelineConfig(resourceUri) {
     commitFormat,
     provider,
     maxTokens,
-    maxRetries
+    maxRetries,
+    apiKey,
+    groqApiKey,
+    githubModelsApiKey,
+    mistralApiKey,
+    apinexApiKey,
+    openrouterApiKey,
+    groqModel,
+    githubModel,
+    mistralModel,
+    apinexModel,
+    openrouterModel
   });
 }
 
@@ -744,7 +778,7 @@ var CommitPipeline = class {
     if (!raw || raw.trim().length === 0) {
       return "chore: update project files";
     }
-    let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "").trim();
+    let cleaned = raw.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, "").replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "").trim();
     cleaned = cleaned.replace(/^(Here (is|are) (the|a|your) commit message:?|Commit message:?|Suggested commit:?)\s*/i, "").trim();
     const lines = cleaned.split("\n");
     let subject = lines[0].trim();
@@ -2152,40 +2186,143 @@ var GoogleAuthService = class _GoogleAuthService {
 };
 
 // src/pipeline/llm-client.ts
+var OPENAI_COMPATIBLE_PROVIDERS = {
+  openai: {
+    label: "OpenAI",
+    url: "https://api.openai.com/v1/chat/completions",
+    defaultModel: "gpt-4o-mini",
+    useMaxCompletionTokensByDefault: true
+  },
+  groq: {
+    label: "Groq Cloud",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    defaultModel: "openai/gpt-oss-120b"
+  },
+  openrouter: {
+    label: "OpenRouter",
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    defaultModel: "openrouter/free",
+    extraHeaders: {
+      "HTTP-Referer": "https://github.com/AhmedFadhl/AiCommitGenerator",
+      "X-Title": "AJ AI Commit Generator Pro"
+    }
+  },
+  github: {
+    label: "GitHub Models",
+    url: "https://models.github.ai/inference/chat/completions",
+    defaultModel: "openai/gpt-4.1-mini"
+  },
+  mistral: {
+    label: "Mistral Studio",
+    url: "https://api.mistral.ai/v1/chat/completions",
+    defaultModel: "codestral-latest"
+  },
+  apinex: {
+    label: "APInex",
+    url: "https://api.apinex.bond/v1/chat/completions",
+    defaultModel: "free/deepseek-v4.1-flash"
+  },
+  deepseek: {
+    label: "DeepSeek",
+    url: "https://api.deepseek.com/chat/completions",
+    defaultModel: "deepseek-chat"
+  }
+};
 function isReasoningModel(model) {
   const m = model.toLowerCase().trim();
-  return /^o\d/i.test(m) || m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4") || m.startsWith("gpt-5") || m.includes("o1") || m.includes("o3") || m.includes("o4") || m.includes("reasoning") || m.includes("reasoner");
+  const baseName = m.includes("/") ? m.split("/").pop() || m : m;
+  return /^o\d/i.test(baseName) || baseName.startsWith("o1") || baseName.startsWith("o3") || baseName.startsWith("o4") || baseName.startsWith("gpt-5") || m.includes("deepseek-r1") || m.includes("qwq") || m.includes("reasoning") || m.includes("reasoner");
 }
-function shouldUseMaxCompletionTokens(model) {
+function shouldUseMaxCompletionTokens(model, provider = "openai") {
   const m = model.toLowerCase().trim();
+  if (provider !== "openai" && provider !== "github") {
+    return false;
+  }
   if (isReasoningModel(m)) return true;
   if (m.startsWith("gpt-3.5") || m.startsWith("gpt-4-0613") || m.startsWith("gpt-4-0314")) {
     return false;
   }
-  return true;
+  return provider === "openai";
 }
+function redactSecrets(text) {
+  return text.replace(/\b(sk-[a-zA-Z0-9_-]{8,}|gsk_[a-zA-Z0-9_-]{8,}|gh[pousr]_[a-zA-Z0-9_]{8,}|github_pat_[a-zA-Z0-9_]{8,})\b/g, "[REDACTED_KEY]").slice(0, 350);
+}
+function extractProviderErrorMessage(rawText) {
+  try {
+    const parsed = JSON.parse(rawText);
+    const msg = parsed?.error?.message || parsed?.message || rawText;
+    return redactSecrets(String(msg));
+  } catch {
+    return redactSecrets(rawText);
+  }
+}
+var DEPRECATED_GROQ_MODELS = /* @__PURE__ */ new Set([
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "qwen-qwq-32b",
+  "deepseek-r1-distill-llama-70b"
+]);
 function getActiveModelForProvider(provider, config) {
   const cfg = config || vscode5.workspace.getConfiguration("aiCommitGenerator");
   const customModel = (cfg.get("customModel") || "").trim();
   const configuredModel = cfg.get(`${provider}Model`);
   if (configuredModel === "custom") {
-    if (customModel.length > 0) return customModel;
+    if (customModel.length > 0) {
+      if (provider === "groq" && DEPRECATED_GROQ_MODELS.has(customModel)) {
+        return "openai/gpt-oss-120b";
+      }
+      return customModel;
+    }
   } else if (configuredModel) {
+    if (provider === "groq" && DEPRECATED_GROQ_MODELS.has(configuredModel)) {
+      return "openai/gpt-oss-120b";
+    }
     return configuredModel;
+  }
+  if (provider in OPENAI_COMPATIBLE_PROVIDERS) {
+    return OPENAI_COMPATIBLE_PROVIDERS[provider].defaultModel;
   }
   switch (provider) {
     case "gemini":
-      return "gemini-1.5-flash";
-    case "openai":
-      return "gpt-4o-mini";
+      return "gemini-3.1-flash-lite-preview";
     case "ollama":
       return cfg.get("ollamaModel") || "gemma2:9b";
-    case "deepseek":
-      return "deepseek-chat";
-    case "openrouter":
-      return "qwen/qwen3-coder:free";
     default:
-      return "gemini-1.5-flash";
+      return "gemini-3.1-flash-lite-preview";
+  }
+}
+async function resolveProviderApiKey(provider, config, pipelineConfig) {
+  switch (provider) {
+    case "groq":
+      return pipelineConfig.groqApiKey || pipelineConfig.apiKey;
+    case "openrouter":
+      return pipelineConfig.openrouterApiKey || pipelineConfig.apiKey;
+    case "mistral":
+      return pipelineConfig.mistralApiKey || pipelineConfig.apiKey;
+    case "apinex":
+      return pipelineConfig.apinexApiKey || pipelineConfig.apiKey;
+    case "github": {
+      if (pipelineConfig.githubModelsApiKey) return pipelineConfig.githubModelsApiKey;
+      const gitToken = (config.get("gitToken") || "").trim();
+      if (gitToken) return gitToken;
+      const trackerToken = (config.get("issueTrackerToken") || "").trim();
+      if (trackerToken) return trackerToken;
+      try {
+        const silentSessionToken = await getGitHubAccessToken(false);
+        if (silentSessionToken) return silentSessionToken.trim();
+      } catch {
+      }
+      if (pipelineConfig.apiKey) return pipelineConfig.apiKey;
+      try {
+        const interactiveToken = await getGitHubAccessToken(true);
+        if (interactiveToken) return interactiveToken.trim();
+      } catch {
+      }
+      return "";
+    }
+    default:
+      return pipelineConfig.apiKey;
   }
 }
 async function invokeProvider(prompt, token, expectJson = false) {
@@ -2251,67 +2388,6 @@ async function invokeProvider(prompt, token, expectJson = false) {
     }
     throw new Error("No Google authentication found. Please sign in with Google or configure an API key.");
   }
-  if (provider === "openai") {
-    if (!apiKey) throw new Error("OpenAI API key not configured.");
-    const model = getActiveModelForProvider("openai", config);
-    const isReasoning = isReasoningModel(model);
-    const isCustom = config.get("openaiModel") === "custom";
-    const payload = {
-      model,
-      messages: [
-        { role: isReasoning ? "developer" : "system", content: sysPrompt },
-        { role: "user", content: prompt }
-      ]
-    };
-    if (expectJson) {
-      payload.response_format = { type: "json_object" };
-    }
-    if (!isReasoning && !isCustom) {
-      payload.temperature = 0.3;
-    }
-    if (shouldUseMaxCompletionTokens(model)) {
-      payload.max_completion_tokens = maxTokens;
-    } else {
-      payload.max_tokens = maxTokens;
-    }
-    let response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      let shouldRetry = false;
-      if (payload.temperature !== void 0 && (errText.includes("temperature") || errText.includes("unsupported_value"))) {
-        delete payload.temperature;
-        shouldRetry = true;
-      }
-      if (payload.max_tokens !== void 0 && (errText.includes("max_completion_tokens") || errText.includes("unsupported_parameter"))) {
-        payload.max_completion_tokens = payload.max_tokens;
-        delete payload.max_tokens;
-        shouldRetry = true;
-      }
-      if (shouldRetry) {
-        response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`
-          },
-          body: JSON.stringify(payload)
-        });
-      }
-      if (!response.ok) {
-        const finalErr = shouldRetry ? await response.text() : errText;
-        throw new Error(`OpenAI API error (${response.status}): ${finalErr}`);
-      }
-    }
-    const data = await response.json();
-    return data?.choices?.[0]?.message?.content || "";
-  }
   if (provider === "ollama") {
     const model = getActiveModelForProvider("ollama", config);
     const endpoint = config.get("ollamaEndpoint") || "http://localhost:11434";
@@ -2326,57 +2402,119 @@ async function invokeProvider(prompt, token, expectJson = false) {
         options: { temperature: 0.3, num_predict: maxTokens }
       })
     });
-    if (!response.ok) throw new Error(`Ollama error (${response.status}): ${await response.text()}`);
+    if (!response.ok) throw new Error(`Ollama error (${response.status}): ${extractProviderErrorMessage(await response.text())}`);
     const data = await response.json();
-    return data.response;
+    return (data.response || "").replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, "").trim();
   }
-  if (provider === "deepseek") {
-    if (!apiKey) throw new Error("DeepSeek API key not configured.");
-    const model = getActiveModelForProvider("deepseek", config);
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        response_format: expectJson ? { type: "json_object" } : void 0,
-        messages: [
-          { role: "system", content: sysPrompt },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: maxTokens
-      })
-    });
-    if (!response.ok) throw new Error(`DeepSeek error (${response.status}): ${await response.text()}`);
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+  if (provider === "github") {
+    throw new Error(
+      'GitHub Models (models.github.ai) was permanently shut down and retired by GitHub on July 30, 2026 (their endpoint now returns only plain-text "OK"). Please switch your AI Provider to Groq Cloud (openai/gpt-oss-120b) or OpenRouter (openrouter/free).'
+    );
   }
-  if (provider === "openrouter") {
-    if (!apiKey) throw new Error("OpenRouter API key not configured.");
-    const model = getActiveModelForProvider("openrouter", config);
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const descriptor = OPENAI_COMPATIBLE_PROVIDERS[provider];
+  if (descriptor) {
+    const resolvedKey = await resolveProviderApiKey(provider, config, pipelineConfig);
+    if (!resolvedKey) {
+      throw new Error(
+        `${descriptor.label} API key not configured. Set aiCommitGenerator.${provider === "openai" || provider === "deepseek" ? "apiKey" : provider + "ApiKey"} (or aiCommitGenerator.apiKey) in extension settings.`
+      );
+    }
+    const model = getActiveModelForProvider(provider, config);
+    const isReasoning = isReasoningModel(model);
+    const isCustom = config.get(`${provider}Model`) === "custom";
+    const payload = {
+      model,
+      messages: [
+        { role: isReasoning && provider === "openai" ? "developer" : "system", content: sysPrompt },
+        { role: "user", content: prompt }
+      ]
+    };
+    if (expectJson) {
+      payload.response_format = { type: "json_object" };
+    }
+    if (!isReasoning && !isCustom) {
+      payload.temperature = 0.3;
+    }
+    if (shouldUseMaxCompletionTokens(model, provider)) {
+      payload.max_completion_tokens = maxTokens;
+    } else {
+      payload.max_tokens = maxTokens;
+    }
+    const requestHeaders = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${resolvedKey}`,
+      ...descriptor.extraHeaders || {}
+    };
+    let response = await fetch(descriptor.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        response_format: expectJson ? { type: "json_object" } : void 0,
-        messages: [
-          { role: "system", content: sysPrompt },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: maxTokens
-      })
+      headers: requestHeaders,
+      body: JSON.stringify(payload)
     });
-    if (!response.ok) throw new Error(`OpenRouter error (${response.status}): ${await response.text()}`);
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+    if (response.status === 400 || response.status === 404) {
+      const errText = await response.text();
+      let shouldRetry = false;
+      if ((errText.includes("decommissioned") || errText.includes("does not exist") || errText.includes("model_not_found")) && payload.model !== descriptor.defaultModel) {
+        payload.model = descriptor.defaultModel;
+        shouldRetry = true;
+        try {
+          await config.update(`${provider}Model`, descriptor.defaultModel, vscode5.ConfigurationTarget.Global);
+        } catch {
+        }
+      }
+      if (payload.temperature !== void 0 && (errText.includes("temperature") || errText.includes("unsupported_value"))) {
+        delete payload.temperature;
+        shouldRetry = true;
+      }
+      if (payload.max_tokens !== void 0 && (errText.includes("max_completion_tokens") || errText.includes("unsupported_parameter"))) {
+        payload.max_completion_tokens = payload.max_tokens;
+        delete payload.max_tokens;
+        shouldRetry = true;
+      } else if (payload.max_completion_tokens !== void 0 && errText.includes("max_completion_tokens")) {
+        payload.max_tokens = payload.max_completion_tokens;
+        delete payload.max_completion_tokens;
+        shouldRetry = true;
+      }
+      if (payload.response_format !== void 0 && errText.includes("response_format")) {
+        delete payload.response_format;
+        shouldRetry = true;
+      }
+      if (payload.messages?.[0]?.role === "developer" && errText.includes("developer")) {
+        payload.messages[0].role = "system";
+        shouldRetry = true;
+      }
+      if (shouldRetry) {
+        response = await fetch(descriptor.url, {
+          method: "POST",
+          headers: requestHeaders,
+          body: JSON.stringify(payload)
+        });
+      }
+      if (!response.ok) {
+        const finalErr = shouldRetry ? await response.text() : errText;
+        throw new Error(`${descriptor.label} API error (${response.status}): ${extractProviderErrorMessage(finalErr)}`);
+      }
+    } else if (!response.ok) {
+      const errText = await response.text();
+      const cleanMsg = extractProviderErrorMessage(errText);
+      if (response.status === 402) {
+        throw new Error(`${descriptor.label} billing/quota required (402): ${cleanMsg}`);
+      }
+      if (response.status === 429) {
+        throw new Error(`${descriptor.label} rate limit reached (429): ${cleanMsg}`);
+      }
+      throw new Error(`${descriptor.label} API error (${response.status}): ${cleanMsg}`);
+    }
+    const rawBody = await response.text();
+    let data;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      throw new Error(
+        `${descriptor.label} returned a non-JSON response (HTTP ${response.status}): "${redactSecrets(rawBody.trim())}". Verify the provider endpoint is active.`
+      );
+    }
+    const rawContent = data?.choices?.[0]?.message?.content || "";
+    return rawContent.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, "").trim();
   }
   throw new Error(`Unsupported provider: ${provider}`);
 }
@@ -3173,62 +3311,115 @@ async function getRepoDiff(repoRoot) {
   }
   return staged;
 }
+var DEPRECATED_GROQ_MODELS_UI = /* @__PURE__ */ new Set([
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "qwen-qwq-32b",
+  "deepseek-r1-distill-llama-70b"
+]);
 function getActiveModel(provider, config) {
   const cfg = config || vscode7.workspace.getConfiguration("aiCommitGenerator");
   const customModel = (cfg.get("customModel") || "").trim();
   const configuredModel = cfg.get(`${provider}Model`);
   if (configuredModel === "custom") {
     if (customModel.length > 0) {
+      if (provider === "groq" && DEPRECATED_GROQ_MODELS_UI.has(customModel)) {
+        return "openai/gpt-oss-120b";
+      }
       return customModel;
     }
     vscode7.window.showWarningMessage(
       `AI Commit Generator: 'custom' selected for ${provider}, but 'customModel' is empty. Falling back to default.`
     );
   } else if (configuredModel) {
+    if (provider === "groq" && DEPRECATED_GROQ_MODELS_UI.has(configuredModel)) {
+      return "openai/gpt-oss-120b";
+    }
     return configuredModel;
   }
   switch (provider) {
     case "gemini":
       return "gemini-3.1-flash-lite-preview";
+    case "groq":
+      return "openai/gpt-oss-120b";
+    case "openrouter":
+      return "openrouter/free";
+    case "github":
+      return "openai/gpt-4.1-mini";
+    case "mistral":
+      return "codestral-latest";
+    case "apinex":
+      return "free/deepseek-v4.1-flash";
     case "openai":
       return "gpt-4o-mini";
     case "ollama":
       return cfg.get("ollamaModel") || "gemma2:9b";
     case "deepseek":
       return "deepseek-chat";
-    case "openrouter":
-      return "qwen/qwen3-coder:free";
     default:
       return "gemini-3.1-flash-lite-preview";
   }
 }
+var PROVIDER_DISPLAY_META = {
+  groq: { title: "Groq Cloud", badge: "\u26A1 Free & Ultra-Fast LPU (500\u20131000 tok/s)", apiKeySetting: "groqApiKey", defaultModel: "openai/gpt-oss-120b", modelsUrl: "https://api.groq.com/openai/v1/models" },
+  openrouter: { title: "OpenRouter", badge: "\u{1F504} Free Models & Zero-Cost Auto-Router", apiKeySetting: "openrouterApiKey", defaultModel: "openrouter/free", modelsUrl: "https://openrouter.ai/api/v1/models" },
+  mistral: { title: "Mistral Studio", badge: "\u{1F9E0} Free Codestral Experimentation Tier", apiKeySetting: "mistralApiKey", defaultModel: "codestral-latest", modelsUrl: "https://api.mistral.ai/v1/models" },
+  gemini: { title: "Google Gemini", badge: "\u2728 AI Studio OAuth / API Key", apiKeySetting: "apiKey", defaultModel: "gemini-3.1-flash-lite-preview" },
+  apinex: { title: "APInex", badge: "\u{1F310} Multi-Model Gateway (apinex.bond)", apiKeySetting: "apinexApiKey", defaultModel: "free/deepseek-v4.1-flash", modelsUrl: "https://api.apinex.bond/v1/models" },
+  openai: { title: "OpenAI", badge: "\u{1F916} GPT-4o & Reasoning Models", apiKeySetting: "apiKey", defaultModel: "gpt-4o-mini", modelsUrl: "https://api.openai.com/v1/models" },
+  deepseek: { title: "DeepSeek", badge: "\u{1F40B} DeepSeek Chat & Coder", apiKeySetting: "apiKey", defaultModel: "deepseek-chat", modelsUrl: "https://api.deepseek.com/models" },
+  ollama: { title: "Ollama", badge: "\u{1F4BB} Local Offline LLM", apiKeySetting: "", defaultModel: "gemma2:9b" }
+};
 async function showSelectModelQuickPick() {
   const config = vscode7.workspace.getConfiguration("aiCommitGenerator");
   const provider = config.get("provider") || "gemini";
   const activeModel = getActiveModel(provider, config);
-  const providerTitle = provider.charAt(0).toUpperCase() + provider.slice(1);
+  const meta = PROVIDER_DISPLAY_META[provider] || {
+    title: provider.charAt(0).toUpperCase() + provider.slice(1),
+    badge: "",
+    apiKeySetting: "apiKey",
+    defaultModel: "gemini-3.1-flash-lite-preview"
+  };
+  const providerTitle = meta.title;
   const customModelsKeyMap = {
     gemini: "customGeminiModels",
+    groq: "customGroqModels",
+    openrouter: "customOpenrouterModels",
+    github: "customGithubModels",
+    mistral: "customMistralModels",
+    apinex: "customApinexModels",
     openai: "customOpenaiModels",
-    deepseek: "customDeepseekModels",
-    openrouter: "customOpenrouterModels"
+    deepseek: "customDeepseekModels"
   };
   const customModelsKey = customModelsKeyMap[provider] || "customGeminiModels";
   const customModels = (config.get(customModelsKey) || []).map((m) => (m || "").trim()).filter((m) => m.length > 0);
   const builtInMap = {
     gemini: [
-      "gemini-2.0-flash",
+      "gemini-3.1-flash-lite-preview",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
       "gemini-2.5-pro",
       "gemini-3-flash-preview",
+      "gemini-2.0-flash",
       "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-3.1-flash-lite-preview"
+      "gemini-1.5-pro"
     ],
-    openai: ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
-    deepseek: ["deepseek-chat", "deepseek-coder"],
+    groq: [
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
+      "allam-2-7b"
+    ],
     openrouter: [
+      "openrouter/free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "google/gemma-4-31b-it:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "inclusionai/ling-3.2-flash:free",
+      "baidu/ernie-5.5-flash-preview:free",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
       "qwen/qwen3-coder:free",
       "openai/gpt-oss-20b:free",
       "nvidia/nemotron-nano-9b-v2:free",
@@ -3237,15 +3428,64 @@ async function showSelectModelQuickPick() {
       "mistralai/devstral-2512:free",
       "openai/gpt-oss-120b:free"
     ],
+    github: [
+      "openai/gpt-4.1-mini",
+      "openai/gpt-4o-mini",
+      "openai/gpt-4.1",
+      "deepseek/DeepSeek-V3-0324",
+      "meta/Llama-3.3-70B-Instruct",
+      "mistral-ai/Codestral-2501"
+    ],
+    mistral: [
+      "codestral-latest",
+      "mistral-small-latest",
+      "mistral-large-latest",
+      "ministral-8b-latest"
+    ],
+    apinex: [
+      "free/deepseek-v4.1-flash",
+      "free/glm-5.3-flash",
+      "free/gemini-4-hydrogen",
+      "free/gpt-6-luna",
+      "free/qwen-3.8-max",
+      "free/minimax-m3.1-flash",
+      "free/claude-sonnet-4.6",
+      "claude-sonnet-5.5",
+      "deepseek-v4.1-flash"
+    ],
+    openai: ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
+    deepseek: ["deepseek-chat", "deepseek-coder"],
     ollama: ["gemma2:9b", "llama3", "mistral"]
   };
   const presets = builtInMap[provider] || [];
   const items = [];
   items.push({
+    label: `$(arrow-swap) Switch AI Provider...`,
+    description: `Current: ${providerTitle} (${meta.badge})`,
+    action: "switch-provider"
+  });
+  if (meta.apiKeySetting) {
+    const hasDedicatedKey = !!(config.get(meta.apiKeySetting) || "").trim();
+    const hasSharedKey = !!(config.get("apiKey") || "").trim();
+    const keyStatus = provider === "github" ? hasDedicatedKey ? "Configured (Dedicated PAT)" : "Auto (Using GitHub Account / gitToken)" : hasDedicatedKey || hasSharedKey ? "Configured \u2714" : "Not Configured \u26A0\uFE0F";
+    items.push({
+      label: `$(key) Set / Update ${providerTitle} API Key...`,
+      description: keyStatus,
+      action: "set-api-key"
+    });
+  }
+  items.push({
     label: `$(plus) Add New Custom Model...`,
     description: `Add a new model identifier to ${providerTitle} list`,
     action: "add"
   });
+  if (meta.modelsUrl) {
+    items.push({
+      label: `$(sync) Fetch Live Models from ${providerTitle} API...`,
+      description: `Query ${meta.modelsUrl} for all active chat models on your account`,
+      action: "fetch-live-models"
+    });
+  }
   if (customModels.length > 0) {
     items.push({
       label: "Custom Models",
@@ -3264,7 +3504,7 @@ async function showSelectModelQuickPick() {
   }
   if (presets.length > 0) {
     items.push({
-      label: "Standard Presets",
+      label: `${providerTitle} Presets`,
       kind: vscode7.QuickPickItemKind.Separator
     });
     for (const model of presets) {
@@ -3290,14 +3530,100 @@ async function showSelectModelQuickPick() {
     });
   }
   const selected = await vscode7.window.showQuickPick(items, {
-    placeHolder: `Select AI model for ${providerTitle} (Current: ${activeModel})`,
+    placeHolder: `Select AI model or switch provider (Current: ${providerTitle} \u2022 ${activeModel})`,
     title: `AI Commit Generator: ${providerTitle} Models`
   });
   if (!selected) return;
+  if (selected.action === "switch-provider") {
+    const providerChoices = Object.entries(PROVIDER_DISPLAY_META).map(([id, info]) => ({
+      label: id === provider ? `$(check) ${info.title}` : `$(hubot) ${info.title}`,
+      description: info.badge,
+      detail: `Default model: ${getActiveModel(id, config)}`,
+      providerId: id
+    }));
+    const pickedProvider = await vscode7.window.showQuickPick(providerChoices, {
+      placeHolder: "Choose AI Provider (Groq, OpenRouter, GitHub Models, Mistral, APInex, Gemini, OpenAI, DeepSeek, Ollama)",
+      title: "AI Commit Generator: Switch AI Provider"
+    });
+    if (!pickedProvider) return;
+    await config.update("provider", pickedProvider.providerId, vscode7.ConfigurationTarget.Global);
+    vscode7.window.showInformationMessage(
+      `AI Commit Generator: Switched provider to ${PROVIDER_DISPLAY_META[pickedProvider.providerId]?.title || pickedProvider.providerId}.`
+    );
+    await showSelectModelQuickPick();
+    return;
+  }
+  if (selected.action === "set-api-key" && meta.apiKeySetting) {
+    const keyInput = await vscode7.window.showInputBox({
+      title: `Configure ${providerTitle} API Key`,
+      prompt: `Enter your ${providerTitle} API Key (saved to aiCommitGenerator.${meta.apiKeySetting})`,
+      password: true,
+      placeHolder: provider === "groq" ? "gsk_..." : provider === "apinex" ? "sk-apx..." : provider === "openrouter" ? "sk-or-..." : "API Key / PAT",
+      ignoreFocusOut: true
+    });
+    if (keyInput !== void 0) {
+      const trimmedKey = keyInput.trim();
+      await config.update(meta.apiKeySetting, trimmedKey, vscode7.ConfigurationTarget.Global);
+      vscode7.window.showInformationMessage(
+        trimmedKey ? `AI Commit Generator: ${providerTitle} API key saved!` : `AI Commit Generator: Cleared dedicated ${providerTitle} API key.`
+      );
+    }
+    return;
+  }
+  if (selected.action === "fetch-live-models" && meta.modelsUrl) {
+    const apiKey = (config.get(meta.apiKeySetting) || config.get("apiKey") || "").trim();
+    if (!apiKey && provider !== "openrouter") {
+      vscode7.window.showWarningMessage(`Please set your ${providerTitle} API key first to fetch live models.`);
+      return;
+    }
+    try {
+      const headers = { "Accept": "application/json" };
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+      const res = await fetch(meta.modelsUrl, { headers });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      }
+      const payload = await res.json();
+      const rawModels = Array.isArray(payload?.data) ? payload.data.map((m) => String(m?.id || "")).filter(Boolean) : [];
+      const chatModels = rawModels.filter((id) => !/(whisper|orpheus|tts|embed|guard|safeguard|moderation|audio)/i.test(id)).sort();
+      if (chatModels.length === 0) {
+        vscode7.window.showWarningMessage(`No chat models returned from ${providerTitle}.`);
+        return;
+      }
+      const livePicked = await vscode7.window.showQuickPick(
+        chatModels.map((id) => ({
+          label: id.toLowerCase() === activeModel.toLowerCase() ? `$(check) ${id}` : `$(cloud) ${id}`,
+          description: id.toLowerCase() === activeModel.toLowerCase() ? "(Active)" : `Live on ${providerTitle}`,
+          modelId: id
+        })),
+        {
+          placeHolder: `Select a live model from ${providerTitle} (${chatModels.length} available)`,
+          title: `Live ${providerTitle} Models`
+        }
+      );
+      if (!livePicked) return;
+      const chosen = livePicked.modelId;
+      if (presets.includes(chosen)) {
+        await config.update(`${provider}Model`, chosen, vscode7.ConfigurationTarget.Global);
+      } else {
+        if (!customModels.some((m) => m.toLowerCase() === chosen.toLowerCase())) {
+          await config.update(customModelsKey, [...customModels, chosen], vscode7.ConfigurationTarget.Global);
+        }
+        await config.update("customModel", chosen, vscode7.ConfigurationTarget.Global);
+        await config.update(`${provider}Model`, "custom", vscode7.ConfigurationTarget.Global);
+      }
+      vscode7.window.showInformationMessage(`AI Commit Generator: Activated live ${providerTitle} model '${chosen}'.`);
+    } catch (err) {
+      vscode7.window.showErrorMessage(`Failed to fetch live models from ${providerTitle}: ${err.message || String(err)}`);
+    }
+    return;
+  }
   if (selected.action === "add") {
     const input = await vscode7.window.showInputBox({
       title: `Add Custom ${providerTitle} Model`,
-      prompt: `Enter the model identifier (e.g. gemini-3.5-pro, gpt-4.5-preview)`,
+      prompt: `Enter the model identifier (e.g. llama-3.3-70b-versatile, openrouter/free, codestral-latest)`,
       placeHolder: "model-identifier",
       validateInput: (val) => {
         const trimmed = (val || "").trim();
@@ -3332,7 +3658,7 @@ async function showSelectModelQuickPick() {
     const currentCustom = (config.get("customModel") || "").trim();
     if (currentCustom.toLowerCase() === toRemove.toLowerCase()) {
       await config.update("customModel", "", vscode7.ConfigurationTarget.Global);
-      const defaultPreset = presets[0] || "";
+      const defaultPreset = presets[0] || meta.defaultModel;
       if (defaultPreset) {
         await config.update(`${provider}Model`, defaultPreset, vscode7.ConfigurationTarget.Global);
       }
@@ -3413,7 +3739,7 @@ function activate(context) {
     const p = cfg.get("provider") || "gemini";
     const m = getActiveModel(p, cfg);
     const rawAuthMode = cfg.get("googleAuthMode", "ApiKey");
-    const isGoogleAccountAuth = rawAuthMode === "Account";
+    const isGoogleAccountAuth = p === "gemini" && rawAuthMode === "Account";
     if (isGoogleAccountAuth) {
       const email = await GoogleAuthService.getInstance().getStoredEmail();
       if (email) {
